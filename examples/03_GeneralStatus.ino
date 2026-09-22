@@ -4,15 +4,19 @@
 SoftwareSerial invSerial(D1, D2);
 VoltronicMAX inverter(invSerial);
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
+  invSerial.begin(2400);
   Serial.println(F("--- 03 QPIGS Full Status ---"));
   inverter.begin(2400);
 }
 
-void loop() {
-  if (inverter.queryGeneralStatus()) {
-    const QPIGSData& d = inverter.qpigs();
+void loop()
+{
+  if (inverter.queryGeneralStatus())
+  {
+    const QPIGSData &d = inverter.qpigs();
 
     Serial.println(F("═══ QPIGS ═══"));
     Serial.printf("Grid Voltage:          %.1f V\n", d.gridVoltage());
@@ -41,7 +45,9 @@ void loop() {
     Serial.printf("Feed to Grid Status:   %u\n", d.solarFeedToGridStatus);
     Serial.printf("Country Regulation:    %u\n", d.countryRegulation);
     Serial.printf("Feed to Grid Power:    %u W\n", d.solarFeedToGridPower);
-  } else {
+  }
+  else
+  {
     Serial.printf("QPIGS failed, err=%u\n", inverter.lastError());
   }
   delay(5000);

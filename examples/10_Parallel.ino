@@ -4,17 +4,23 @@
 SoftwareSerial invSerial(D1, D2);
 VoltronicMAX inverter(invSerial);
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
+  invSerial.begin(2400);
   Serial.println(F("--- 10 QPGSn Parallel ---"));
   inverter.begin(2400);
 }
 
-void loop() {
-  for (uint8_t n = 0; n < 6; n++) {
-    if (inverter.queryParallel(n)) {
-      const ParallelInfo& p = inverter.parallel();
-      if (!p.exists) continue;
+void loop()
+{
+  for (uint8_t n = 0; n < 6; n++)
+  {
+    if (inverter.queryParallel(n))
+    {
+      const ParallelInfo &p = inverter.parallel();
+      if (!p.exists)
+        continue;
 
       Serial.printf("═══ Device %u ═══\n", p.parallelNumber);
       Serial.printf("S/N: %s | Mode: %c | Fault: %u\n",

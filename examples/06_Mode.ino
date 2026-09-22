@@ -4,14 +4,18 @@
 SoftwareSerial invSerial(D1, D2);
 VoltronicMAX inverter(invSerial);
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
+  invSerial.begin(2400);
   Serial.println(F("--- 06 QMOD ---"));
   inverter.begin(2400);
 }
 
-void loop() {
-  if (inverter.queryMode()) {
+void loop()
+{
+  if (inverter.queryMode())
+  {
     Serial.printf("Mode: %c (%s)\n",
                   inverter.mode(), inverter.modeString());
   }

@@ -4,15 +4,19 @@
 SoftwareSerial invSerial(D1, D2);
 VoltronicMAX inverter(invSerial);
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
+  invSerial.begin(2400);
   Serial.println(F("--- 08 QFLAG ---"));
   inverter.begin(2400);
 }
 
-void loop() {
-  if (inverter.queryFlags()) {
-    const QFLAGData& f = inverter.qflag();
+void loop()
+{
+  if (inverter.queryFlags())
+  {
+    const QFLAGData &f = inverter.qflag();
     Serial.println(F("═══ QFLAG ═══"));
     Serial.printf("Buzzer Enabled:         %d\n", f.buzzerEnabled());
     Serial.printf("Overload Bypass:        %d\n", f.overloadBypass());

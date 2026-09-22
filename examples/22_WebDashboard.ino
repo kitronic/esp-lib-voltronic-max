@@ -34,28 +34,33 @@ const char PAGE_HTML[] PROGMEM = R"HTML(
 </body></html>
 )HTML";
 
-void handleRoot() {
+void handleRoot()
+{
   String html = FPSTR(PAGE_HTML);
-  const QPIGSData& d = inverter.qpigs();
+  const QPIGSData &d = inverter.qpigs();
 
   html.replace("%GRIDV%", String(d.gridVoltage(), 1));
-  html.replace("%OUTV%",  String(d.acOutputVoltage(), 1));
-  html.replace("%LOAD%",  String(d.loadPercent));
+  html.replace("%OUTV%", String(d.acOutputVoltage(), 1));
+  html.replace("%LOAD%", String(d.loadPercent));
   html.replace("%BATTV%", String(d.batteryVoltage(), 2));
   html.replace("%BATTC%", String(d.batteryCapacity));
-  html.replace("%PVV%",   String(d.pv1InputVoltage(), 1));
-  html.replace("%PVW%",   String(d.pv1ChargingPower));
-  html.replace("%TEMP%",  String(d.inverterTemperature));
-  html.replace("%MODE%",  String(inverter.modeString()));
+  html.replace("%PVV%", String(d.pv1InputVoltage(), 1));
+  html.replace("%PVW%", String(d.pv1ChargingPower));
+  html.replace("%TEMP%", String(d.inverterTemperature));
+  html.replace("%MODE%", String(inverter.modeString()));
 
   server.send(200, "text/html", html);
 }
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
+  invSerial.begin(2400);
   WiFi.begin("your_wifi", "your_pass");
-  while (WiFi.status() != WL_CONNECTED) delay(500);
-  Serial.print("IP: "); Serial.println(WiFi.localIP());
+  while (WiFi.status() != WL_CONNECTED)
+    delay(500);
+  Serial.print("IP: ");
+  Serial.println(WiFi.localIP());
 
   inverter.begin(2400);
   inverter.startPolling();
@@ -64,7 +69,8 @@ void setup() {
   server.begin();
 }
 
-void loop() {
+void loop()
+{
   server.handleClient();
   inverter.poll();
 }

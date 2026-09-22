@@ -4,15 +4,19 @@
 SoftwareSerial invSerial(D1, D2);
 VoltronicMAX inverter(invSerial);
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
+  invSerial.begin(2400);
   Serial.println(F("--- 09 QDI Defaults ---"));
   inverter.begin(2400);
 }
 
-void loop() {
-  if (inverter.queryDefaults()) {
-    const DefaultsInfo& d = inverter.defaults();
+void loop()
+{
+  if (inverter.queryDefaults())
+  {
+    const DefaultsInfo &d = inverter.defaults();
     Serial.printf("AC Out V:        %.1f V\n", d.acOutputVoltage_x10 / 10.0f);
     Serial.printf("AC Out Hz:       %.1f Hz\n", d.acOutputFrequency_x10 / 10.0f);
     Serial.printf("Max AC Charge:   %u A\n", d.maxACChargingCurrent);

@@ -4,8 +4,10 @@
 SoftwareSerial invSerial(D1, D2);
 VoltronicMAX inverter(invSerial);
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
+  invSerial.begin(2400);
   Serial.println(F("--- 16 All Settings ---"));
   inverter.begin(2400);
   inverter.setTimeout(2000);

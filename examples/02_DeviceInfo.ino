@@ -5,14 +5,17 @@ SoftwareSerial invSerial(D1, D2);
 VoltronicMAX inverter(invSerial);
 char buf[64];
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
+  invSerial.begin(2400);
   Serial.println(F("--- 02 DeviceInfo ---"));
   inverter.begin(2400);
   inverter.setTimeout(1500);
 }
 
-void loop() {
+void loop()
+{
   if (inverter.queryProtocolID(buf, sizeof(buf)))
     Serial.printf("Protocol ID: %s\n", buf);
 

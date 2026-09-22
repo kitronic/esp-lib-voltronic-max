@@ -53,12 +53,14 @@ lib_deps =
 #include <VoltronicMAX.h>
 #include <SoftwareSerial.h>
 
-SoftwareSerial invSerial(D1, D2);
+SoftwareSerial invSerial(D1, D2);       // ESP8266
 VoltronicMAX inverter(invSerial);
 
 void setup() {
   Serial.begin(115200);
-  inverter.begin(2400);
+invSerial.begin(2400); 
+  invSerial.begin(2400);                // ← مهم: هيّئ Serial بنفسك
+  inverter.begin(2400);                 // ← المكتبة تخزن الإعدادات فقط
 }
 
 void loop() {
@@ -70,6 +72,9 @@ void loop() {
   delay(2000);
 }
 ```
+
+> ⚠️ **مهم:** المكتبة لا تهيّئ `Serial` تلقائياً. لازم تنادي `invSerial.begin(2400)` 
+> (أو `Serial2.begin(2400, SERIAL_8N1, rx, tx)` للـ ESP32) قبل `inverter.begin()`.
 
 ---
 
@@ -348,6 +353,7 @@ VoltronicMAX inverter(invSerial);
 
 void setup() {
   Serial.begin(115200);
+  invSerial.begin(2400); 
   Serial.println(F("--- BasicRead ---"));
   inverter.begin(2400);
 }

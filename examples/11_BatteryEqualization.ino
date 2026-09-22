@@ -4,15 +4,19 @@
 SoftwareSerial invSerial(D1, D2);
 VoltronicMAX inverter(invSerial);
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
+  invSerial.begin(2400);
   Serial.println(F("--- 11 QBEQI ---"));
   inverter.begin(2400);
 }
 
-void loop() {
-  if (inverter.queryBatteryEqualization()) {
-    const BatteryEqualizationInfo& e = inverter.equalization();
+void loop()
+{
+  if (inverter.queryBatteryEqualization())
+  {
+    const BatteryEqualizationInfo &e = inverter.equalization();
     Serial.printf("Enabled:        %d\n", e.enabled);
     Serial.printf("Time:           %u min\n", e.timeMinutes);
     Serial.printf("Period:         %u days\n", e.periodDays);
