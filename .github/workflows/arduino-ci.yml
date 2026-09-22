@@ -9,33 +9,54 @@ jobs:
   compile:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        board:
-          - esp32:esp32:esp32
-          - esp8266:esp8266:nodemcuv2
-          - arduino:avr:uno
+        include:
+          - platform: esp32
+            fqbn: esp32:esp32:esp32
+          - platform: esp8266
+            fqbn: esp8266:esp8266:nodemcuv2
+          - platform: avr
+            fqbn: arduino:avr:uno
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: arduino/setup-arduino-cli@v1
+
       - name: Install core
         run: |
-          IFS=':' read -ra PARTS <<< "${{ matrix.board }}"
           arduino-cli core update-index
-          arduino-cli core install ${PARTS[0]}:${PARTS[1]}
+          arduino-cli core install ${{ matrix.platform }}:${{ matrix.platform }}
+
+      - name: Add ESP8266 index (for esp8266)
+        if: matrix.platform == 'esp8266'
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls \
+            https://arduino.esp8266.com/stable/package_esp8266com_index.json
+          arduino-cli core update-index
+          arduino-cli core install esp8266:esp8266
+
       - name: Compile BasicRead
         run: |
-          arduino-cli compile --fqbn ${{ matrix.board }} \
-            examples/01_BasicRead
+          mkdir -p /tmp/sketch/01_BasicRead
+          cp examples/01_BasicRead.ino /tmp/sketch/01_BasicRead/01_BasicRead.ino
+          arduino-cli compile --fqbn ${{ matrix.fqbn }} /tmp/sketch/01_BasicRead
 
   native-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install g++
+        run: sudo apt-get install -y g++
+
       - name: Build & run native tests
         run: |
-          cd test/test_native
-          g++ -std=c++11 -I../../src \
+          cd test
+          g++ -std=c++11 -I../src \
               test_native.cpp \
-              ../../src/VoltronicParser.cpp \
+              ../src/VoltronicParser.cpp \
               -o test_native
           ./test_native
