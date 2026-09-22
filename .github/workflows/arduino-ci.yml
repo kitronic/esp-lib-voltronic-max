@@ -1,0 +1,41 @@
+name: Arduino CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        board:
+          - esp32:esp32:esp32
+          - esp8266:esp8266:nodemcuv2
+          - arduino:avr:uno
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v1
+      - name: Install core
+        run: |
+          IFS=':' read -ra PARTS <<< "${{ matrix.board }}"
+          arduino-cli core update-index
+          arduino-cli core install ${PARTS[0]}:${PARTS[1]}
+      - name: Compile BasicRead
+        run: |
+          arduino-cli compile --fqbn ${{ matrix.board }} \
+            examples/01_BasicRead
+
+  native-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build & run native tests
+        run: |
+          cd test/test_native
+          g++ -std=c++11 -I../../src \
+              test_native.cpp \
+              ../../src/VoltronicParser.cpp \
+              -o test_native
+          ./test_native

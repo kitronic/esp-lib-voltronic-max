@@ -1,0 +1,31 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# Arduino
+build/
+*.hex
+*.elf
+*.bin
+*.map
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+test_native
+test_native.exe
+*.o
+*.obj
+
+# Secrets
+secrets.h
+wifi_credentials.h

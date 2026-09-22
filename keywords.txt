@@ -1,16 +1,111 @@
+#######################################
+# Datatypes
+#######################################
 VoltronicMAX	KEYWORD1
+VoltronicConfig	KEYWORD1
+QPIGSData	KEYWORD1
+QPIGS2Data	KEYWORD1
+QPIRIData	KEYWORD1
+QFLAGData	KEYWORD1
+ParallelInfo	KEYWORD1
+BatteryEqualizationInfo	KEYWORD1
+LedInfo	KEYWORD1
+DefaultsInfo	KEYWORD1
+BatteryControlStatus	KEYWORD1
+SelectableValues	KEYWORD1
+TimeOrderInfo	KEYWORD1
+WarningDecoded	KEYWORD1
+
+#######################################
+# Init
+#######################################
 begin	KEYWORD2
-update	KEYWORD2
-sendCommand	KEYWORD2
+setTimeout	KEYWORD2
+setRetries	KEYWORD2
+
+#######################################
+# Queries
+#######################################
 queryProtocolID	KEYWORD2
+querySerialNumber	KEYWORD2
+querySerialNumberLong	KEYWORD2
+queryFirmware	KEYWORD2
+queryFirmware2	KEYWORD2
+queryBluetoothVersion	KEYWORD2
+queryModelName	KEYWORD2
+queryGeneralModelName	KEYWORD2
+queryBoot	KEYWORD2
+queryRating	KEYWORD2
 queryGeneralStatus	KEYWORD2
+queryGeneralStatus2	KEYWORD2
 queryMode	KEYWORD2
 queryWarnings	KEYWORD2
-queryRating	KEYWORD2
-setOutputSourcePriority	KEYWORD2
-setChargerSourcePriority	KEYWORD2
+queryFlags	KEYWORD2
+queryDefaults	KEYWORD2
+queryParallel	KEYWORD2
+queryBatteryEqualization	KEYWORD2
+queryLed	KEYWORD2
+queryBatteryControl	KEYWORD2
+queryTime	KEYWORD2
+queryMaxChargingCurrents	KEYWORD2
+queryMaxUtilityChargingCurrents	KEYWORD2
+queryOutputPriorityTimeOrder	KEYWORD2
+queryChargerPriorityTimeOrder	KEYWORD2
+
+#######################################
+# Settings
+#######################################
+setFlag	KEYWORD2
+clearFlag	KEYWORD2
+resetDefaults	KEYWORD2
 setMaxChargingCurrent	KEYWORD2
-data	KEYWORD2
+setMaxUtilityChargingCurrent	KEYWORD2
+setMaxDischargingCurrent	KEYWORD2
+setOutputVoltage	KEYWORD2
+setOutputFrequency	KEYWORD2
+setOutputSourcePriority	KEYWORD2
+setOutputMode	KEYWORD2
+setBatteryRechargeVoltage	KEYWORD2
+setBatteryRedischargeVoltage	KEYWORD2
+setBatteryCutoffVoltage	KEYWORD2
+setBatteryCvVoltage	KEYWORD2
+setBatteryFloatVoltage	KEYWORD2
+setChargerSourcePriority	KEYWORD2
+setGridWorkingRange	KEYWORD2
+setBatteryType	KEYWORD2
+setParallelChargerPriority	KEYWORD2
+resetEnergy	KEYWORD2
+eraseLog	KEYWORD2
+setBatteryEqualizationEnabled	KEYWORD2
+setBatteryEqualizationTime	KEYWORD2
+setBatteryEqualizationPeriod	KEYWORD2
+setBatteryEqualizationVoltage	KEYWORD2
+setBatteryEqualizationOverTime	KEYWORD2
+activateBatteryEqualization	KEYWORD2
+setMaxCvChargingTime	KEYWORD2
+setDateTime	KEYWORD2
+setBatteryControl	KEYWORD2
+
+#######################################
+# Data access
+#######################################
+qpigs	KEYWORD2
+qpigs2	KEYWORD2
+qpiri	KEYWORD2
+qflag	KEYWORD2
+parallel	KEYWORD2
+equalization	KEYWORD2
+led	KEYWORD2
+defaults	KEYWORD2
+batteryCtrl	KEYWORD2
+maxChgOptions	KEYWORD2
+maxUtilChgOptions	KEYWORD2
+outputTimeOrder	KEYWORD2
+chargerTimeOrder	KEYWORD2
+warnings	KEYWORD2
+mode	KEYWORD2
+modeString	KEYWORD2
+validBits	KEYWORD2
 lastError	KEYWORD2
-InverterData	KEYWORD3
-WarningFlags	KEYWORD3
+lastResponse	KEYWORD2
+lastCommand	KEYWORD2

@@ -1,0 +1,59 @@
+esp-lib-voltronic-max/
+├── library.properties
+├── keywords.txt
+├── README.md
+├── LICENSE
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── platformio.ini
+├── package.json
+├── .gitignore
+├── .gitattributes
+├── .github/
+│   └── workflows/
+│       └── arduino-ci.yml
+├── docs/
+│   ├── COMMANDS.md
+│   ├── PROTOCOL.md
+│   ├── CRC.md
+│   └── MEMORY.md
+├── src/
+│   ├── VoltronicMAX.h
+│   ├── VoltronicMAX.cpp
+│   ├── VoltronicConfig.h
+│   ├── VoltronicCommands.h
+│   ├── VoltronicCRC.h
+│   ├── VoltronicTypes.h
+│   ├── VoltronicParser.h
+│   ├── VoltronicParser.cpp
+│   ├── VoltronicTransport.h
+│   └── VoltronicData.h       (توافق)
+├── examples/
+│   ├── 01_BasicRead/
+│   ├── 02_DeviceInfo/
+│   ├── 03_GeneralStatus/
+│   ├── 04_GeneralStatus2/
+│   ├── 05_Rating/
+│   ├── 06_Mode/
+│   ├── 07_Warnings/
+│   ├── 08_Flags/
+│   ├── 09_Defaults/
+│   ├── 10_Parallel/
+│   ├── 11_BatteryEqualization/
+│   ├── 12_Led/
+│   ├── 13_TimeOrder/
+│   ├── 14_BatteryControl/
+│   ├── 15_SelectableValues/
+│   ├── 16_AllSettings/
+│   ├── 17_NonBlocking/
+│   └── 18_AsyncPoller/
+├── test/
+│   ├── README.md
+│   ├── test_crc/
+│   │   └── test_crc.cpp
+│   ├── test_parser/
+│   │   └── test_parser.cpp
+│   ├── test_frame/
+│   │   └── test_frame.cpp
+│   └── test_native/
+│       └── test_native.cpp
