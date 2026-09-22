@@ -4,7 +4,14 @@
 
 // ═══════════════════════════════════════════════════════════════
 //  Transport — يلف Stream (HardwareSerial أو SoftwareSerial)
-//  بدون dynamic allocation، بدون String
+//
+//  ⚠️ ملاحظة مهمة:
+//  Stream هي class مجردة وما فيها begin(). يجب على المستخدم
+//  استدعاء Serial.begin(baud) قبل استخدام المكتبة.
+//
+//  مثال:
+//    Serial2.begin(2400, SERIAL_8N1, 16, 17);  // ESP32
+//    inverter.begin(2400);                     // يخزن الإعدادات فقط
 // ═══════════════════════════════════════════════════════════════
 class VoltronicTransport {
 public:
@@ -13,24 +20,21 @@ public:
 
   void attachConfig(const VoltronicConfig* cfg) { _cfg = cfg; }
 
+  // ما نستدعي begin() على Stream لأنها مجردة
+  // المستخدم مسؤول عن تهيئة Serial بنفسه
   void begin() {
-    if (_cfg) _serial.begin(_cfg->baud, SERIAL_8N1);
-    else      _serial.begin(VOLTRONIC_DEFAULT_BAUD, SERIAL_8N1);
+    // لا شي — الباود والفريم يضبطهم المستخدم
   }
 
-  // تنظيف أي بايتات عالقة
   void clear() {
     while (_serial.available()) _serial.read();
   }
 
-  // كتابة frame جاهز (مع CRC و CR)
   void writeRaw(const uint8_t* data, size_t len) {
     _serial.write(data, len);
     _serial.flush();
   }
 
-  // قراءة حتى CR — مع timeout و yield
-  // يرجّع عدد البايتات المقروءة (بدون CR)
   size_t readUntilCR(uint8_t* buffer, size_t maxLen) {
     if (!_cfg) return 0;
 
@@ -56,6 +60,9 @@ public:
     }
     return idx;
   }
+
+  // للاستعمال الداخلي فقط
+  Stream& stream() { return _serial; }
 
 private:
   Stream& _serial;

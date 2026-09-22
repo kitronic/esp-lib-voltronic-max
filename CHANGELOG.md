@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+
+
+// CHANGELOG.md
+## [1.1.1] - 2026-09-23
+### Fixed
+- ESP8266 toolchain compatibility (Stream.begin issue)
+- Removed invalid bit 35 accessor (WarningDecoded)
+- Removed unused readFloatFixed declaration
+
+
 ## [1.1.0] - 2026-09-22
 
 ### Added

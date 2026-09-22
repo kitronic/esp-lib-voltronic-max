@@ -157,6 +157,8 @@ struct QFLAGData {
 
 // ═══════════════════════════════════════════════════════════════
 //  Warning decode (QPIWS)
+//  ملاحظة: البروتوكول يرسل 36 بت (a0..a35)، لكننا نخزن أول 32 فقط
+//  البتات a32..a35 نادرة ويمكن إضافتها لاحقاً إذا لزم
 // ═══════════════════════════════════════════════════════════════
 struct WarningDecoded {
   uint32_t raw = 0;
@@ -185,10 +187,11 @@ struct WarningDecoded {
   bool batOpen()              const { return raw & (1UL << 22); }
   bool currentSensorFail()    const { return raw & (1UL << 23); }
   bool batteryWeak()          const { return raw & (1UL << 31); }
-  bool batteryEqualization()  const { return raw & (1UL << 35); }
+  // ملاحظة: bit 35 (batteryEqualization) يتجاوز حجم uint32_t
+  // إذا احتجت الدعم الكامل، غيّر `raw` إلى uint64_t
+
   bool any() const { return raw != 0; }
 };
-
 // ═══════════════════════════════════════════════════════════════
 //  QPGSn — Parallel info (compact)
 // ═══════════════════════════════════════════════════════════════

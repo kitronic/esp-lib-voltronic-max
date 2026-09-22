@@ -297,27 +297,7 @@ bool VoltronicParser::readUInt(const char*& p, uint32_t& out, uint8_t digits) {
   return true;
 }
 
-// ─── "2301" → 2301 (مخزن x10) أو "5234" → 5234 (مخزن x100) ───
-bool VoltronicParser::readFloatFixed(const char*& p, uint32_t& out, 
-                                     uint8_t intDigits, uint8_t fracDigits) {
-  uint32_t v = 0;
-  for (uint8_t i = 0; i < intDigits; i++) {
-    if (*p < '0' || *p > '9') return false;
-    v = v * 10 + (uint32_t)(*p - '0');
-    p++;
-  }
-  if (fracDigits > 0) {
-    if (*p != '.') return false;
-    p++;
-    for (uint8_t i = 0; i < fracDigits; i++) {
-      if (*p < '0' || *p > '9') return false;
-      v = v * 10 + (uint32_t)(*p - '0');
-      p++;
-    }
-  }
-  out = v;
-  return true;
-}
+
 
 bool VoltronicParser::readBits(const char*& p, uint8_t n, uint32_t& out) {
   out = 0;
