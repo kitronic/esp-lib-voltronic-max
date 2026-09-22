@@ -16,7 +16,7 @@ jobs:
             fqbn: esp32:esp32:esp32
           - platform: esp8266
             fqbn: esp8266:esp8266:nodemcuv2
-          - platform: avr
+          - platform: arduino
             fqbn: arduino:avr:uno
 
     steps:
@@ -24,7 +24,7 @@ jobs:
 
       - uses: arduino/setup-arduino-cli@v1
 
-      - name: Install ESP8266 board index
+      - name: Add ESP8266 index
         if: matrix.platform == 'esp8266'
         run: |
           arduino-cli config init
@@ -36,7 +36,6 @@ jobs:
           arduino-cli core update-index
           arduino-cli core install ${{ matrix.platform }}:${{ matrix.platform }}
 
-      # ⬇️ المهم: نثبت المكتبة محلياً
       - name: Install VoltronicMAX library locally
         run: |
           mkdir -p ~/Arduino/libraries/VoltronicMAX
@@ -53,6 +52,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check test structure
+        run: |
+          ls -la test/ || echo "test/ not found"
+          ls -la test/test_native/ || echo "test/test_native/ not found"
 
       - name: Build & run native tests
         run: |

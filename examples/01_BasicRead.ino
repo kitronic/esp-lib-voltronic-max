@@ -1,22 +1,34 @@
 #include <VoltronicMAX.h>
-#include <SoftwareSerial.h>
 
-SoftwareSerial invSerial(D1, D2);
+// ═══ اختيار المنفذ حسب المنصة ═══
+#if defined(ESP8266)
+  #include <SoftwareSerial.h>
+  SoftwareSerial invSerial(D1, D2);       // ESP8266
+#elif defined(ESP32)
+  #define invSerial Serial2                // ESP32
+#else
+  #include <SoftwareSerial.h>
+  SoftwareSerial invSerial(10, 11);        // AVR
+#endif
+
 VoltronicMAX inverter(invSerial);
 
-void setup()
-{
+void setup() {
   Serial.begin(115200);
+
+#if defined(ESP32)
+  Serial2.begin(2400, SERIAL_8N1, 16, 17);
+#else
   invSerial.begin(2400);
-  Serial.println(F("--- 01 BasicRead ---"));
+#endif
+
   inverter.begin(2400);
+  Serial.println(F("--- 01 BasicRead ---"));
 }
 
-void loop()
-{
-  if (inverter.queryGeneralStatus())
-  {
-    const QPIGSData &d = inverter.qpigs();
+void loop() {
+  if (inverter.queryGeneralStatus()) {
+    const QPIGSData& d = inverter.qpigs();
     Serial.printf("Grid: %.1fV %.1fHz\n", d.gridVoltage(), d.gridFrequency());
     Serial.printf("Out:  %.1fV %.1fHz | Load %u%%\n",
                   d.acOutputVoltage(), d.acOutputFrequency(), d.loadPercent);
@@ -25,9 +37,7 @@ void loop()
                   d.batteryCapacity, d.inverterTemperature);
     Serial.printf("PV1:  %.1fV %.1fA %uW\n",
                   d.pv1InputVoltage(), d.pv1InputCurrent(), d.pv1ChargingPower);
-  }
-  else
-  {
+  } else {
     Serial.printf("Failed, err=%u\n", inverter.lastError());
   }
   delay(3000);
