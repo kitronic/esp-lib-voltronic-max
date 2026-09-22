@@ -1,0 +1,16 @@
+VoltronicMAX	KEYWORD1
+begin	KEYWORD2
+update	KEYWORD2
+sendCommand	KEYWORD2
+queryProtocolID	KEYWORD2
+queryGeneralStatus	KEYWORD2
+queryMode	KEYWORD2
+queryWarnings	KEYWORD2
+queryRating	KEYWORD2
+setOutputSourcePriority	KEYWORD2
+setChargerSourcePriority	KEYWORD2
+setMaxChargingCurrent	KEYWORD2
+data	KEYWORD2
+lastError	KEYWORD2
+InverterData	KEYWORD3
+WarningFlags	KEYWORD3
