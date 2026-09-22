@@ -1,6 +1,7 @@
 #include "VoltronicParser.h"
 #include <string.h>
 #include <stdlib.h>
+
 // ═══════════════════════════════════════════════════════════════
 //  Numeric helpers
 // ═══════════════════════════════════════════════════════════════
@@ -55,9 +56,7 @@ uint8_t VoltronicParser::strToU8(const char *s)
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  QPGSn — Parallel info (token-based)
-//  (A BBBBBBBBBBBBB B C DD EEE.E FF.FF GGGG HH.HH III JJJ KKK
-//   LL.L MMM NNN OOO.O PPP QQQQQ RRRRR SSS b7..b0 T U VVV WWW ZZ XX.YY
+//  QPGSn — Parallel info
 // ═══════════════════════════════════════════════════════════════
 bool VoltronicParser::parseQPGSn(const char *payload, ParallelInfo &out)
 {
@@ -138,9 +137,13 @@ bool VoltronicParser::parseQPGSn(const char *payload, ParallelInfo &out)
   // Status bits b7..b0
   if (!next())
     return true;
-  uint32_t bits;
-  if (readBits(p, 8, bits))
-    out.inverterStatus = (uint8_t)bits;
+  {
+    uint8_t bits = 0;
+    for (uint8_t i = 0; i < 8 && tok[i]; i++)
+      if (tok[i] == '1')
+        bits |= (1 << i);
+    out.inverterStatus = bits;
+  }
 
   if (!next())
     return true;
@@ -166,7 +169,6 @@ bool VoltronicParser::parseQPGSn(const char *payload, ParallelInfo &out)
 
 // ═══════════════════════════════════════════════════════════════
 //  QBEQI — Battery equalization
-//  (B CCC DDD EEE FFF GG.GGG HHH III J KKKK
 // ═══════════════════════════════════════════════════════════════
 bool VoltronicParser::parseQBEQI(const char *payload, BatteryEqualizationInfo &out)
 {
@@ -188,31 +190,9 @@ bool VoltronicParser::parseQBEQI(const char *payload, BatteryEqualizationInfo &o
   if (!next())
     return false;
   out.periodDays = strToU16(tok);
-
-  // EEE أو GG.GG — نحاول float
   if (!next())
     return false;
-  {
-    const char *s = tok;
-    uint32_t intPart = 0;
-    while (*s >= '0' && *s <= '9')
-      intPart = intPart * 10 + (*s++ - '0');
-    uint16_t frac = 0;
-    if (*s == '.')
-    {
-      s++;
-      uint8_t d = 0;
-      while (*s >= '0' && *s <= '9' && d < 2)
-      {
-        frac = frac * 10 + (*s++ - '0');
-        d++;
-      }
-      if (d == 1)
-        frac *= 10;
-    }
-    out.voltage_x10 = (uint16_t)(intPart * 10 + frac / 10);
-  }
-
+  out.voltage_x10 = strToU16x10(tok);
   if (!next())
     return false;
   out.overTimeMinutes = strToU16(tok);
@@ -228,7 +208,6 @@ bool VoltronicParser::parseQBEQI(const char *payload, BatteryEqualizationInfo &o
 
 // ═══════════════════════════════════════════════════════════════
 //  QLED — LED status
-//  (A B C D E aaa1bbb1ccc1 ... aaadbbbdcccd
 // ═══════════════════════════════════════════════════════════════
 bool VoltronicParser::parseQLED(const char *payload, LedInfo &out)
 {
@@ -261,7 +240,6 @@ bool VoltronicParser::parseQLED(const char *payload, LedInfo &out)
   {
     if (!next())
       break;
-    // صيغة RGB: "aaa" أو "aaaa"؟ حسب القيم — نقرأ 3 قيم متسلسلة
     out.red[i] = (uint8_t)strtoul(tok, nullptr, 10);
     if (!next())
       break;
@@ -274,7 +252,7 @@ bool VoltronicParser::parseQLED(const char *payload, LedInfo &out)
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  QDI — Default settings (طويل، نأخذ الأهم)
+//  QDI — Default settings
 // ═══════════════════════════════════════════════════════════════
 bool VoltronicParser::parseQDI(const char *payload, DefaultsInfo &out)
 {
@@ -328,7 +306,7 @@ bool VoltronicParser::parseQDI(const char *payload, DefaultsInfo &out)
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  QBATCD — (abc
+//  QBATCD
 // ═══════════════════════════════════════════════════════════════
 bool VoltronicParser::parseQBATCDRaw(const char *payload, char &a, char &b, char &c)
 {
@@ -356,7 +334,7 @@ bool VoltronicParser::parseQBATCD(const char *payload, BatteryControlStatus &out
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  QMCHGCR / QMUCHGCR — قوائم قيم
+//  QMCHGCR / QMUCHGCR
 // ═══════════════════════════════════════════════════════════════
 bool VoltronicParser::parseQMCHGCR(const char *payload, SelectableValues &out)
 {
@@ -376,13 +354,11 @@ bool VoltronicParser::parseQMCHGCR(const char *payload, SelectableValues &out)
 
 bool VoltronicParser::parseQMUCHGCR(const char *payload, SelectableValues &out)
 {
-  return parseQMCHGCR(payload, out); // نفس البنية
+  return parseQMCHGCR(payload, out);
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  QOPPT / QCHPT — جدول زمني
-//  (M M M ... M N O O
-//   24 قيمة M + N + O + O
+//  QOPPT / QCHPT
 // ═══════════════════════════════════════════════════════════════
 bool VoltronicParser::parseQOPPT(const char *payload, TimeOrderInfo &out)
 {
@@ -413,7 +389,7 @@ bool VoltronicParser::parseQCHPT(const char *payload, TimeOrderInfo &out)
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  QBOOT — (0 / (1
+//  QBOOT
 // ═══════════════════════════════════════════════════════════════
 bool VoltronicParser::parseQBOOT(const char *payload, bool &hasBootstrap)
 {
@@ -424,6 +400,7 @@ bool VoltronicParser::parseQBOOT(const char *payload, bool &hasBootstrap)
   hasBootstrap = (*p == '1');
   return true;
 }
+
 void VoltronicParser::skipSpaces(const char *&p)
 {
   while (*p == ' ')
@@ -442,7 +419,6 @@ bool VoltronicParser::readToken(const char *&p, char *out, size_t maxLen)
   return i > 0;
 }
 
-// ─── "1234" → 1234 ───
 bool VoltronicParser::readUInt(const char *&p, uint32_t &out, uint8_t digits)
 {
   out = 0;
@@ -471,9 +447,7 @@ bool VoltronicParser::readBits(const char *&p, uint8_t n, uint32_t &out)
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  QPIGS — token-based, بدون String
-//  (BBB.B CC.C DDD.D EE.E FFFF GGGG HHH III JJ.JJ KKK OOO TTTT
-//   EE.E UUU.U WW.WW PPPPP b7..b0 QQ VV MMMMM b10..b8 Y ZZ AAAA)
+//  QPIGS — استعمل strToU16x10/100 مباشرة بدل lambda معطوبة
 // ═══════════════════════════════════════════════════════════════
 bool VoltronicParser::parseQPIGS(const char *payload, QPIGSData &out)
 {
@@ -483,97 +457,63 @@ bool VoltronicParser::parseQPIGS(const char *payload, QPIGSData &out)
   p++;
 
   char tok[16];
-  uint8_t idx = 0;
-
-  // نستخدم lambda داخلية لتبسيط الكود
   auto next = [&]() -> bool
-  {
-    if (!readToken(p, tok, sizeof(tok)))
-      return false;
-    idx++;
-    return true;
-  };
+  { return readToken(p, tok, sizeof(tok)); };
   auto toU32 = [&](uint32_t &v)
   { v = (uint32_t)strtoul(tok, nullptr, 10); };
-  auto toU16x10 = [&](uint16_t &v)
-  {
-    // "230.1" → 2301
-    uint32_t intPart = 0, fracPart = 0;
-    const char *s = tok;
-    while (*s >= '0' && *s <= '9')
-      intPart = intPart * 10 + (*s++ - '0');
-    if (*s == '.')
-    {
-      s++;
-      for (uint8_t i = 0; i < 2 && *s >= '0' && *s <= '9'; i++)
-      {
-        fracPart = fracPart * 10 + (*s++ - '0');
-      }
-    }
-    v = (uint16_t)(intPart * 10 + (fracPart / 10));
-  };
-  auto toU16x100 = [&](uint16_t &v)
-  {
-    uint32_t intPart = 0, fracPart = 0;
-    uint8_t digits = 0;
-    const char *s = tok;
-    while (*s >= '0' && *s <= '9')
-      intPart = intPart * 10 + (*s++ - '0');
-    if (*s == '.')
-    {
-      s++;
-      while (*s >= '0' && *s <= '9' && digits < 2)
-      {
-        fracPart = fracPart * 10 + (*s++ - '0');
-        digits++;
-      }
-    }
-    if (digits == 1)
-      fracPart *= 10;
-    v = (uint16_t)(intPart * 100 + fracPart);
-  };
 
   uint32_t u;
 
   if (!next())
     return false;
-  toU16x10(out.gridVoltage_x10);
+  out.gridVoltage_x10 = strToU16x10(tok);
+
   if (!next())
     return false;
-  toU16x10(out.gridFrequency_x10);
+  out.gridFrequency_x10 = strToU16x10(tok);
+
   if (!next())
     return false;
-  toU16x10(out.acOutputVoltage_x10);
+  out.acOutputVoltage_x10 = strToU16x10(tok);
+
   if (!next())
     return false;
-  toU16x10(out.acOutputFrequency_x10);
+  out.acOutputFrequency_x10 = strToU16x10(tok);
+
   if (!next())
     return false;
   toU32(u);
   out.acOutputApparentPower = (uint16_t)u;
+
   if (!next())
     return false;
   toU32(u);
   out.acOutputActivePower = (uint16_t)u;
+
   if (!next())
     return false;
   toU32(u);
   out.loadPercent = (uint8_t)u;
+
   if (!next())
     return false;
   toU32(u);
   out.busVoltage = (uint16_t)u;
+
   if (!next())
     return false;
-  toU16x100(out.batteryVoltage_x100);
+  out.batteryVoltage_x100 = strToU16x100(tok);
+
   if (!next())
     return false;
   toU32(u);
   out.batteryChargingCurrent = (uint16_t)u;
+
   if (!next())
     return false;
   toU32(u);
   out.batteryCapacity = (uint8_t)u;
+
   if (!next())
     return false;
   toU32(u);
@@ -581,13 +521,16 @@ bool VoltronicParser::parseQPIGS(const char *payload, QPIGSData &out)
 
   if (!next())
     return false;
-  toU16x10(out.pv1InputCurrent_x10);
+  out.pv1InputCurrent_x10 = strToU16x10(tok);
+
   if (!next())
     return false;
-  toU16x10(out.pv1InputVoltage_x10);
+  out.pv1InputVoltage_x10 = strToU16x10(tok);
+
   if (!next())
     return false;
-  toU16x100(out.sccBatteryVoltage_x100);
+  out.sccBatteryVoltage_x100 = strToU16x100(tok);
+
   if (!next())
     return false;
   toU32(u);
@@ -599,27 +542,27 @@ bool VoltronicParser::parseQPIGS(const char *payload, QPIGSData &out)
   {
     uint8_t bits = 0;
     for (uint8_t i = 0; i < 8 && tok[i]; i++)
-    {
       if (tok[i] == '1')
         bits |= (1 << i);
-    }
     out.deviceStatus = bits;
   }
+
   if (!next())
     return false;
   toU32(u);
   out.batteryVoltageOffsetForFans = (uint16_t)u;
+
   if (!next())
     return false;
   toU32(u);
   out.eepromVersion = (uint8_t)u;
+
   if (!next())
     return false;
   toU32(u);
   out.pv1ChargingPower = (uint16_t)u;
 
-  // Status bits b10..b8 (3 bits) — قد تكون ملتصقة بنفس التوكن أو منفصلة
-  // Status bits b10..b8 (3 bits)
+  // Status bits b10..b8
   if (!next())
   {
     out.deviceStatus2 = 0;
@@ -628,21 +571,21 @@ bool VoltronicParser::parseQPIGS(const char *payload, QPIGSData &out)
   {
     uint8_t bits = 0;
     for (uint8_t i = 0; i < 3 && tok[i]; i++)
-    {
       if (tok[i] == '1')
         bits |= (1 << i);
-    }
     out.deviceStatus2 = bits;
   }
 
   if (!next())
-    return true; // نكتفي بما لدينا
+    return true;
   toU32(u);
   out.solarFeedToGridStatus = (uint8_t)u;
+
   if (!next())
     return true;
   toU32(u);
   out.countryRegulation = (uint8_t)u;
+
   if (!next())
     return true;
   toU32(u);
@@ -652,7 +595,7 @@ bool VoltronicParser::parseQPIGS(const char *payload, QPIGSData &out)
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  QPIGS2 — (BB.B CCC.C DDDDD)
+//  QPIGS2
 // ═══════════════════════════════════════════════════════════════
 bool VoltronicParser::parseQPIGS2(const char *payload, QPIGS2Data &out)
 {
@@ -664,33 +607,15 @@ bool VoltronicParser::parseQPIGS2(const char *payload, QPIGS2Data &out)
   char tok[16];
   auto next = [&]() -> bool
   { return readToken(p, tok, sizeof(tok)); };
-  auto toU16x10 = [&](uint16_t &v)
-  {
-    uint32_t intPart = 0, fracPart = 0;
-    uint8_t digits = 0;
-    const char *s = tok;
-    while (*s >= '0' && *s <= '9')
-      intPart = intPart * 10 + (*s++ - '0');
-    if (*s == '.')
-    {
-      s++;
-      while (*s >= '0' && *s <= '9' && digits < 2)
-      {
-        fracPart = fracPart * 10 + (*s++ - '0');
-        digits++;
-      }
-    }
-    if (digits == 1)
-      fracPart *= 10;
-    v = (uint16_t)(intPart * 10 + fracPart / 10);
-  };
 
   if (!next())
     return false;
-  toU16x10(out.pv2InputCurrent_x10);
+  out.pv2InputCurrent_x10 = strToU16x10(tok);
+
   if (!next())
     return false;
-  toU16x10(out.pv2InputVoltage_x10);
+  out.pv2InputVoltage_x10 = strToU16x10(tok);
+
   if (!next())
   {
     out.pv2ChargingPower = (uint16_t)((out.pv2InputVoltage_x10 / 10.0f) *
@@ -702,7 +627,7 @@ bool VoltronicParser::parseQPIGS2(const char *payload, QPIGS2Data &out)
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  QPIRI — token-based
+//  QPIRI
 // ═══════════════════════════════════════════════════════════════
 bool VoltronicParser::parseQPIRI(const char *payload, QPIRIData &out)
 {
@@ -712,14 +637,8 @@ bool VoltronicParser::parseQPIRI(const char *payload, QPIRIData &out)
   p++;
 
   char tok[16];
-  uint8_t idx = 0;
   auto next = [&]() -> bool
-  {
-    if (!readToken(p, tok, sizeof(tok)))
-      return false;
-    idx++;
-    return true;
-  };
+  { return readToken(p, tok, sizeof(tok)); };
   auto toU32 = [&](uint32_t &v)
   { v = (uint32_t)strtoul(tok, nullptr, 10); };
 
@@ -788,7 +707,6 @@ bool VoltronicParser::parseQPIRI(const char *payload, QPIRIData &out)
   toU32(u);
   out.chargerSourcePriority = (uint8_t)u;
 
-  // الباقي اختياري
   if (!next())
     return true;
   toU32(u);
@@ -817,7 +735,7 @@ bool VoltronicParser::parseQPIRI(const char *payload, QPIRIData &out)
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  QMOD — (M
+//  QMOD
 // ═══════════════════════════════════════════════════════════════
 bool VoltronicParser::parseQMOD(const char *payload, char &modeOut)
 {
@@ -832,7 +750,7 @@ bool VoltronicParser::parseQMOD(const char *payload, char &modeOut)
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  QPIWS — (a0a1a2...a35
+//  QPIWS
 // ═══════════════════════════════════════════════════════════════
 bool VoltronicParser::parseQPIWS(const char *payload, uint32_t &warningsOut)
 {
@@ -842,7 +760,6 @@ bool VoltronicParser::parseQPIWS(const char *payload, uint32_t &warningsOut)
   p++;
 
   uint32_t flags = 0;
-  // البروتوكول يرسل 32 بت (بعض الأجهزة 36)
   for (uint8_t i = 0; i < 32 && p[i]; i++)
   {
     if (p[i] == '1')
@@ -855,7 +772,7 @@ bool VoltronicParser::parseQPIWS(const char *payload, uint32_t &warningsOut)
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  QFLAG — (ExxxDxxx...  (نبحث عن الحروف)
+//  QFLAG
 // ═══════════════════════════════════════════════════════════════
 bool VoltronicParser::parseQFLAG(const char *payload, QFLAGData &out)
 {
@@ -866,7 +783,6 @@ bool VoltronicParser::parseQFLAG(const char *payload, QFLAGData &out)
 
   out.flags = 0;
 
-  // لكل حرف flag، نبحث عن آخر ظهور له ونتحقق من الحرف السابق
   auto hasFlag = [&](char c) -> bool
   {
     bool enabled = false;
@@ -885,25 +801,25 @@ bool VoltronicParser::parseQFLAG(const char *payload, QFLAGData &out)
   };
 
   if (hasFlag('a'))
-    out.flags |= (1u << 0); // buzzer
+    out.flags |= (1u << 0);
   if (hasFlag('b'))
-    out.flags |= (1u << 1); // overload bypass
+    out.flags |= (1u << 1);
   if (hasFlag('d'))
-    out.flags |= (1u << 2); // solar feed
+    out.flags |= (1u << 2);
   if (hasFlag('j'))
-    out.flags |= (1u << 3); // power saving
+    out.flags |= (1u << 3);
   if (hasFlag('k'))
-    out.flags |= (1u << 4); // lcd escape
+    out.flags |= (1u << 4);
   if (hasFlag('u'))
-    out.flags |= (1u << 5); // overload restart
+    out.flags |= (1u << 5);
   if (hasFlag('v'))
-    out.flags |= (1u << 6); // over temp restart
+    out.flags |= (1u << 6);
   if (hasFlag('x'))
-    out.flags |= (1u << 7); // backlight
+    out.flags |= (1u << 7);
   if (hasFlag('y'))
-    out.flags |= (1u << 8); // alarm
+    out.flags |= (1u << 8);
   if (hasFlag('z'))
-    out.flags |= (1u << 9); // fault record
+    out.flags |= (1u << 9);
 
   return true;
 }
