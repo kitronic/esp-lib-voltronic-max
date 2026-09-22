@@ -21,18 +21,27 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: arduino/setup-arduino-cli@v1
 
-      - name: Install core
+      - name: Install ESP8266 board index
+        if: matrix.platform == 'esp8266'
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls \
+            https://arduino.esp8266.com/stable/package_esp8266com_index.json
+
+      - name: Update index & install core
         run: |
           arduino-cli core update-index
-          if [ "${{ matrix.platform }}" = "esp8266" ]; then
-            arduino-cli config init
-            arduino-cli config add board_manager.additional_urls \
-              https://arduino.esp8266.com/stable/package_esp8266com_index.json
-            arduino-cli core update-index
-          fi
           arduino-cli core install ${{ matrix.platform }}:${{ matrix.platform }}
+
+      # ⬇️ المهم: نثبت المكتبة محلياً
+      - name: Install VoltronicMAX library locally
+        run: |
+          mkdir -p ~/Arduino/libraries/VoltronicMAX
+          cp -r src ~/Arduino/libraries/VoltronicMAX/
+          cp library.properties ~/Arduino/libraries/VoltronicMAX/
 
       - name: Compile BasicRead
         run: |
@@ -44,6 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Build & run native tests
         run: |
           cd test/test_native
