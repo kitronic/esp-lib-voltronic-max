@@ -1,6 +1,6 @@
 {
   "name": "VoltronicMAX",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Full-featured, memory-optimized Arduino library for Voltronic Axpert MAX (PI30 ASCII protocol). Supports HV7.2kW and LV5kW inverters with 25 inquiry + 30 setting commands.",
   "keywords": [
     "voltronic",
