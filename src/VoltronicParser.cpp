@@ -514,19 +514,22 @@ bool VoltronicParser::parseQPIGS(const char *payload, QPIGSData &out)
   };
   auto toU16x100 = [&](uint16_t &v)
   {
-    // "52.00" → 5200
     uint32_t intPart = 0, fracPart = 0;
+    uint8_t digits = 0;
     const char *s = tok;
     while (*s >= '0' && *s <= '9')
       intPart = intPart * 10 + (*s++ - '0');
     if (*s == '.')
     {
       s++;
-      for (uint8_t i = 0; i < 2 && *s >= '0' && *s <= '9'; i++)
+      while (*s >= '0' && *s <= '9' && digits < 2)
       {
         fracPart = fracPart * 10 + (*s++ - '0');
+        digits++;
       }
     }
+    if (digits == 1)
+      fracPart *= 10;
     v = (uint16_t)(intPart * 100 + fracPart);
   };
 
@@ -664,16 +667,22 @@ bool VoltronicParser::parseQPIGS2(const char *payload, QPIGS2Data &out)
   auto toU16x10 = [&](uint16_t &v)
   {
     uint32_t intPart = 0, fracPart = 0;
+    uint8_t digits = 0;
     const char *s = tok;
     while (*s >= '0' && *s <= '9')
       intPart = intPart * 10 + (*s++ - '0');
     if (*s == '.')
     {
       s++;
-      for (uint8_t i = 0; i < 2 && *s >= '0' && *s <= '9'; i++)
+      while (*s >= '0' && *s <= '9' && digits < 2)
+      {
         fracPart = fracPart * 10 + (*s++ - '0');
+        digits++;
+      }
     }
-    v = (uint16_t)(intPart * 10 + (fracPart / 10));
+    if (digits == 1)
+      fracPart *= 10;
+    v = (uint16_t)(intPart * 10 + fracPart / 10);
   };
 
   if (!next())
@@ -684,7 +693,6 @@ bool VoltronicParser::parseQPIGS2(const char *payload, QPIGS2Data &out)
   toU16x10(out.pv2InputVoltage_x10);
   if (!next())
   {
-    // احسب من V*A
     out.pv2ChargingPower = (uint16_t)((out.pv2InputVoltage_x10 / 10.0f) *
                                       (out.pv2InputCurrent_x10 / 10.0f));
     return true;
