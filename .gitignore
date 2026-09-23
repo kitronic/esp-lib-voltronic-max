@@ -21,7 +21,6 @@ build/
 Thumbs.db
 
 # Test
-test_native
 test_native.exe
 *.o
 *.obj
