@@ -13,10 +13,13 @@ jobs:
       matrix:
         include:
           - platform: esp32
+            arch: esp32
             fqbn: esp32:esp32:esp32
           - platform: esp8266
+            arch: esp8266
             fqbn: esp8266:esp8266:nodemcuv2
           - platform: arduino
+            arch: avr
             fqbn: arduino:avr:uno
 
     steps:
@@ -34,7 +37,8 @@ jobs:
       - name: Update index & install core
         run: |
           arduino-cli core update-index
-          arduino-cli core install ${{ matrix.platform }}:${{ matrix.platform }}
+          arduino-cli core install ${{ matrix.platform }}:${{ matrix.arch }}
+
 
       - name: Install VoltronicMAX library locally
         run: |
