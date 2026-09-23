@@ -47,6 +47,7 @@ jobs:
           cp library.properties ~/Arduino/libraries/VoltronicMAX/
 
       - name: Compile BasicRead
+        if: matrix.platform != 'arduino' || true  # ← خليها للكل بس مع مثال محدّث
         run: |
           mkdir -p /tmp/sketch/01_BasicRead
           cp examples/01_BasicRead.ino /tmp/sketch/01_BasicRead/01_BasicRead.ino

@@ -1,14 +1,13 @@
 #include <VoltronicMAX.h>
 
-// ═══ اختيار المنفذ حسب المنصة ═══
 #if defined(ESP8266)
   #include <SoftwareSerial.h>
-  SoftwareSerial invSerial(D1, D2);       // ESP8266
+  SoftwareSerial invSerial(D1, D2);
 #elif defined(ESP32)
-  #define invSerial Serial2                // ESP32
+  #define invSerial Serial2
 #else
   #include <SoftwareSerial.h>
-  SoftwareSerial invSerial(10, 11);        // AVR
+  SoftwareSerial invSerial(10, 11);
 #endif
 
 VoltronicMAX inverter(invSerial);
@@ -29,16 +28,41 @@ void setup() {
 void loop() {
   if (inverter.queryGeneralStatus()) {
     const QPIGSData& d = inverter.qpigs();
-    Serial.printf("Grid: %.1fV %.1fHz\n", d.gridVoltage(), d.gridFrequency());
-    Serial.printf("Out:  %.1fV %.1fHz | Load %u%%\n",
-                  d.acOutputVoltage(), d.acOutputFrequency(), d.loadPercent);
-    Serial.printf("Batt: %.2fV %uA %u%% | Temp %uC\n",
-                  d.batteryVoltage(), d.batteryChargingCurrent,
-                  d.batteryCapacity, d.inverterTemperature);
-    Serial.printf("PV1:  %.1fV %.1fA %uW\n",
-                  d.pv1InputVoltage(), d.pv1InputCurrent(), d.pv1ChargingPower);
+
+    Serial.print(F("Grid: "));
+    Serial.print(d.gridVoltage(), 1);
+    Serial.print(F("V "));
+    Serial.print(d.gridFrequency(), 1);
+    Serial.println(F("Hz"));
+
+    Serial.print(F("Out:  "));
+    Serial.print(d.acOutputVoltage(), 1);
+    Serial.print(F("V "));
+    Serial.print(d.acOutputFrequency(), 1);
+    Serial.print(F("Hz | Load "));
+    Serial.print(d.loadPercent);
+    Serial.println(F("%"));
+
+    Serial.print(F("Batt: "));
+    Serial.print(d.batteryVoltage(), 2);
+    Serial.print(F("V "));
+    Serial.print(d.batteryChargingCurrent);
+    Serial.print(F("A "));
+    Serial.print(d.batteryCapacity);
+    Serial.print(F("% | Temp "));
+    Serial.print(d.inverterTemperature);
+    Serial.println(F("C"));
+
+    Serial.print(F("PV1:  "));
+    Serial.print(d.pv1InputVoltage(), 1);
+    Serial.print(F("V "));
+    Serial.print(d.pv1InputCurrent(), 1);
+    Serial.print(F("A "));
+    Serial.print(d.pv1ChargingPower);
+    Serial.println(F("W"));
   } else {
-    Serial.printf("Failed, err=%u\n", inverter.lastError());
+    Serial.print(F("Failed, err="));
+    Serial.println(inverter.lastError());
   }
   delay(3000);
 }
