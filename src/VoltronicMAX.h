@@ -7,26 +7,29 @@
 #include "VoltronicParser.h"
 #include "VoltronicTransport.h"
 
-class VoltronicMAX {
+class VoltronicMAX
+{
 public:
-  enum Error : uint8_t {
-    ERR_NONE     = 0,
-    ERR_TIMEOUT  = 1,
-    ERR_SHORT    = 2,
-    ERR_CRC      = 3,
-    ERR_NAK      = 4,
+  size_t lastResponseLen() const { return _respLen; }
+  enum Error : uint8_t
+  {
+    ERR_NONE = 0,
+    ERR_TIMEOUT = 1,
+    ERR_SHORT = 2,
+    ERR_CRC = 3,
+    ERR_NAK = 4,
     ERR_BAD_RESP = 5,
-    ERR_PARSE    = 6,
-    ERR_BUSY     = 7,
+    ERR_PARSE = 6,
+    ERR_BUSY = 7,
     ERR_TOO_LONG = 8,
   };
 
-  explicit VoltronicMAX(Stream& serial);
+  explicit VoltronicMAX(Stream &serial);
 
   // ═══════════════════════════════════════════════════════════
   //  Init
   // ═══════════════════════════════════════════════════════════
-  bool begin(const VoltronicConfig& cfg);
+  bool begin(const VoltronicConfig &cfg);
   bool begin(uint32_t baud = VOLTRONIC_DEFAULT_BAUD);
   void setTimeout(uint16_t ms);
   void setRetries(uint8_t r);
@@ -34,20 +37,20 @@ public:
   // ═══════════════════════════════════════════════════════════
   //  Raw
   // ═══════════════════════════════════════════════════════════
-  bool sendRaw(const char* cmd);
+  bool sendRaw(const char *cmd);
 
   // ═══════════════════════════════════════════════════════════
   //  INQUIRY COMMANDS (25)
   // ═══════════════════════════════════════════════════════════
-  bool queryProtocolID(char* out, size_t len);
-  bool querySerialNumber(char* out, size_t len);
-  bool querySerialNumberLong(char* out, size_t len);
-  bool queryFirmware(char* out, size_t len);
-  bool queryFirmware2(char* out, size_t len);
-  bool queryBluetoothVersion(char* out, size_t len);
-  bool queryModelName(char* out, size_t len);
-  bool queryGeneralModelName(char* out, size_t len);
-  bool queryBoot(bool& hasBootstrap);
+  bool queryProtocolID(char *out, size_t len);
+  bool querySerialNumber(char *out, size_t len);
+  bool querySerialNumberLong(char *out, size_t len);
+  bool queryFirmware(char *out, size_t len);
+  bool queryFirmware2(char *out, size_t len);
+  bool queryBluetoothVersion(char *out, size_t len);
+  bool queryModelName(char *out, size_t len);
+  bool queryGeneralModelName(char *out, size_t len);
+  bool queryBoot(bool &hasBootstrap);
   bool queryRating();
   bool queryGeneralStatus();
   bool queryGeneralStatus2();
@@ -59,7 +62,7 @@ public:
   bool queryBatteryEqualization();
   bool queryLed();
   bool queryBatteryControl();
-  bool queryTime(char* out, size_t len);
+  bool queryTime(char *out, size_t len);
   bool queryMaxChargingCurrents();
   bool queryMaxUtilityChargingCurrents();
   bool queryOutputPriorityTimeOrder();
@@ -96,36 +99,41 @@ public:
   bool setBatteryEqualizationOverTime(uint16_t min);
   bool activateBatteryEqualization(bool active);
   bool setMaxCvChargingTime(uint16_t min);
-  bool setDateTime(const char* yymmddhhmmss);
+  bool setDateTime(const char *yymmddhhmmss);
   bool setBatteryControl(uint8_t a, uint8_t b, uint8_t c);
 
   // ═══════════════════════════════════════════════════════════
   //  DATA ACCESS
   // ═══════════════════════════════════════════════════════════
-  const QPIGSData&               qpigs()        const { return _qpigs; }
-  const QPIGS2Data&              qpigs2()       const { return _qpigs2; }
-  const QPIRIData&               qpiri()        const { return _qpiri; }
-  const QFLAGData&               qflag()        const { return _qflag; }
-  const ParallelInfo&            parallel()     const { return _parallel; }
-  const BatteryEqualizationInfo& equalization() const { return _beqi; }
-  const LedInfo&                 led()          const { return _led; }
-  const DefaultsInfo&            defaults()     const { return _defaults; }
-  const BatteryControlStatus&    batteryCtrl()  const { return _batcd; }
-  const SelectableValues&        maxChgOptions()const { return _maxChg; }
-  const SelectableValues&        maxUtilChgOptions() const { return _maxUtilChg; }
-  const TimeOrderInfo&           outputTimeOrder()  const { return _outputTO; }
-  const TimeOrderInfo&           chargerTimeOrder() const { return _chargerTO; }
+  const QPIGSData &qpigs() const { return _qpigs; }
+  const QPIGS2Data &qpigs2() const { return _qpigs2; }
+  const QPIRIData &qpiri() const { return _qpiri; }
+  const QFLAGData &qflag() const { return _qflag; }
+  const ParallelInfo &parallel() const { return _parallel; }
+  const BatteryEqualizationInfo &equalization() const { return _beqi; }
+  const LedInfo &led() const { return _led; }
+  const DefaultsInfo &defaults() const { return _defaults; }
+  const BatteryControlStatus &batteryCtrl() const { return _batcd; }
+  const SelectableValues &maxChgOptions() const { return _maxChg; }
+  const SelectableValues &maxUtilChgOptions() const { return _maxUtilChg; }
+  const TimeOrderInfo &outputTimeOrder() const { return _outputTO; }
+  const TimeOrderInfo &chargerTimeOrder() const { return _chargerTO; }
 
-  WarningDecoded  warnings()  const { WarningDecoded w; w.raw = _warningsRaw; return w; }
-  char            mode()      const { return _mode; }
-  const char*     modeString()const { return VoltronicParser::modeToString(_mode); }
-  uint32_t        validBits() const { return _validBits; }
-  bool            hasBoot()   const { return _hasBoot; }
+  WarningDecoded warnings() const
+  {
+    WarningDecoded w;
+    w.raw = _warningsRaw;
+    return w;
+  }
+  char mode() const { return _mode; }
+  const char *modeString() const { return VoltronicParser::modeToString(_mode); }
+  uint32_t validBits() const { return _validBits; }
+  bool hasBoot() const { return _hasBoot; }
 
   // ═══════════════════════════════════════════════════════════
   //  NON-BLOCKING POLLING
   // ═══════════════════════════════════════════════════════════
-  void startPolling(const VoltronicPollSchedule& schedule);
+  void startPolling(const VoltronicPollSchedule &schedule);
   void startPolling();
   void stopPolling();
 
@@ -133,60 +141,60 @@ public:
   // ترجع true إذا خلصت دورة كاملة
   bool poll();
 
-  bool     pollingCycleDone() const { return _pollCycleDone; }
-  uint32_t pollingCycles()    const { return _pollCycles; }
+  bool pollingCycleDone() const { return _pollCycleDone; }
+  uint32_t pollingCycles() const { return _pollCycles; }
 
   // ─── Status ───
-  Error       lastError()    const { return _lastError; }
-  const char* lastResponse() const { return _respBuf; }
-  const char* lastCommand()  const { return _cmdBuf; }
+  Error lastError() const { return _lastError; }
+  const char *lastResponse() const { return _respBuf; }
+  const char *lastCommand() const { return _cmdBuf; }
 
 private:
   VoltronicTransport _transport;
-  VoltronicConfig    _localCfg;
+  VoltronicConfig _localCfg;
 
-  char     _respBuf[VOLTRONIC_RESP_BUF_SIZE];
-  size_t   _respLen = 0;
-  char     _cmdBuf[VOLTRONIC_CMD_BUF_SIZE];
+  char _respBuf[VOLTRONIC_RESP_BUF_SIZE];
+  size_t _respLen = 0;
+  char _cmdBuf[VOLTRONIC_CMD_BUF_SIZE];
 
   // Data structs
-  QPIGSData               _qpigs;
-  QPIGS2Data              _qpigs2;
-  QPIRIData               _qpiri;
-  QFLAGData               _qflag;
-  ParallelInfo            _parallel;
+  QPIGSData _qpigs;
+  QPIGS2Data _qpigs2;
+  QPIRIData _qpiri;
+  QFLAGData _qflag;
+  ParallelInfo _parallel;
   BatteryEqualizationInfo _beqi;
-  LedInfo                 _led;
-  DefaultsInfo            _defaults;
-  BatteryControlStatus    _batcd;
-  SelectableValues        _maxChg;
-  SelectableValues        _maxUtilChg;
-  TimeOrderInfo           _outputTO;
-  TimeOrderInfo           _chargerTO;
-  uint32_t                _warningsRaw = 0;
-  char                    _mode = ' ';
-  bool                    _hasBoot = false;
-  uint32_t                _validBits = 0;
+  LedInfo _led;
+  DefaultsInfo _defaults;
+  BatteryControlStatus _batcd;
+  SelectableValues _maxChg;
+  SelectableValues _maxUtilChg;
+  TimeOrderInfo _outputTO;
+  TimeOrderInfo _chargerTO;
+  uint32_t _warningsRaw = 0;
+  char _mode = ' ';
+  bool _hasBoot = false;
+  uint32_t _validBits = 0;
 
   Error _lastError = ERR_NONE;
 
   // ─── Poll state ───
   VoltronicPollSchedule _pollSchedule;
-  bool     _pollEnabled   = false;
-  uint8_t  _pollIndex     = 0;
+  bool _pollEnabled = false;
+  uint8_t _pollIndex = 0;
   uint32_t _pollLastFire[9] = {0};
-  uint32_t _pollCycles    = 0;
-  bool     _pollCycleDone = false;
+  uint32_t _pollCycles = 0;
+  bool _pollCycleDone = false;
 
   // ─── Helpers ───
-  bool transact(const char* cmd, bool expectAck);
-  bool buildFrame(const char* cmd, uint8_t* out, size_t& outLen);
+  bool transact(const char *cmd, bool expectAck);
+  bool buildFrame(const char *cmd, uint8_t *out, size_t &outLen);
   bool checkCRC();
   bool isAck() const;
   bool isNak() const;
-  const char* payloadStart() const;
+  const char *payloadStart() const;
 
   // ─── Poll helpers ───
-  bool     execPollQuery(uint8_t idx);
+  bool execPollQuery(uint8_t idx);
   uint16_t getPollInterval(uint8_t idx) const;
 };
