@@ -1,65 +1,69 @@
+// ═══════════════════════════════════════════════════════════════
+//  Example 03 — General Status (QPIGS full)
+// ═══════════════════════════════════════════════════════════════
+
 #include <VoltronicMAX.h>
-#if defined(ESP8266) || defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_SAMD)
-#include <SoftwareSerial.h>
+
+#if defined(ARDUINO_ARCH_ESP8266)
+  #include <SoftwareSerial.h>
+  #define INV_RX_PIN  D1
+  #define INV_TX_PIN  D2
+  SoftwareSerial invSerial(INV_RX_PIN, INV_TX_PIN, false);
+  #define INV_BAUD    2400
+  #define IS_ESP32    0
+
+#elif defined(ARDUINO_ARCH_ESP32)
+  #define INV_RX_PIN  16
+  #define INV_TX_PIN  17
+  #define INV_BAUD    2400
+  #define invSerial   Serial2
+  #define IS_ESP32    1
+
+#elif defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_SAMD)
+  #include <SoftwareSerial.h>
+  #define INV_RX_PIN  10
+  #define INV_TX_PIN  11
+  SoftwareSerial invSerial(INV_RX_PIN, INV_TX_PIN);
+  #define INV_BAUD    2400
+  #define IS_ESP32    0
 #endif
 
-#if defined(ESP8266)
-SoftwareSerial invSerial(D1, D2);
-#elif defined(ESP32)
-  // ESP32: استخدم Serial2
-#define invSerial Serial2
-#endif
 VoltronicMAX inverter(invSerial);
 
-void setup()
-{
+void setup() {
   Serial.begin(115200);
-#if defined(ESP8266)
-  invSerial.begin(2400);
-#elif defined(ESP32)
-  Serial2.begin(2400, SERIAL_8N1, 16, 17);
+  delay(500);
+  Serial.println(F("\n=== 03_GeneralStatus ==="));
+
+#if IS_ESP32
+  Serial2.begin(INV_BAUD, SERIAL_8N1, INV_RX_PIN, INV_TX_PIN);
+#else
+  invSerial.begin(INV_BAUD);
 #endif
-  Serial.println(F("--- 03 QPIGS Full Status ---"));
-  inverter.begin(2400);
+
+  inverter.begin(INV_BAUD);
+  delay(300);
 }
 
-void loop()
-{
-  if (inverter.queryGeneralStatus())
-  {
+void loop() {
+  if (inverter.queryGeneralStatus()) {
     const QPIGSData &d = inverter.qpigs();
 
-    Serial.println(F("═══ QPIGS ═══"));
-    Serial.printf("Grid Voltage:          %.1f V\n", d.gridVoltage());
-    Serial.printf("Grid Frequency:        %.1f Hz\n", d.gridFrequency());
-    Serial.printf("AC Output Voltage:     %.1f V\n", d.acOutputVoltage());
-    Serial.printf("AC Output Frequency:   %.1f Hz\n", d.acOutputFrequency());
-    Serial.printf("Output Apparent:       %u VA\n", d.acOutputApparentPower);
-    Serial.printf("Output Active:         %u W\n", d.acOutputActivePower);
-    Serial.printf("Load Percent:          %u %%\n", d.loadPercent);
-    Serial.printf("Bus Voltage:           %u V\n", d.busVoltage);
-    Serial.printf("Battery Voltage:       %.2f V\n", d.batteryVoltage());
-    Serial.printf("Battery Charge Curr:   %u A\n", d.batteryChargingCurrent);
-    Serial.printf("Battery Capacity:      %u %%\n", d.batteryCapacity);
-    Serial.printf("Inverter Temp:         %u C\n", d.inverterTemperature);
-    Serial.printf("PV1 Current:           %.1f A\n", d.pv1InputCurrent());
-    Serial.printf("PV1 Voltage:           %.1f V\n", d.pv1InputVoltage());
-    Serial.printf("SCC Battery Voltage:   %.2f V\n", d.sccBatteryVoltage());
-    Serial.printf("Battery Discharge:     %u A\n", d.batteryDischargeCurrent);
-    Serial.printf("Device Status:         0x%02X\n", d.deviceStatus);
-    Serial.printf("  Load On:             %d\n", d.sbLoadOn());
-    Serial.printf("  Charging Status:     %u\n", d.sbChargingStatus());
-    Serial.printf("Battery Offset Fans:   %u\n", d.batteryVoltageOffsetForFans);
-    Serial.printf("EEPROM Version:        %u\n", d.eepromVersion);
-    Serial.printf("PV1 Charging Power:    %u W\n", d.pv1ChargingPower);
-    Serial.printf("Device Status 2:       0x%02X\n", d.deviceStatus2);
-    Serial.printf("Feed to Grid Status:   %u\n", d.solarFeedToGridStatus);
-    Serial.printf("Country Regulation:    %u\n", d.countryRegulation);
-    Serial.printf("Feed to Grid Power:    %u W\n", d.solarFeedToGridPower);
+    Serial.printf_P(PSTR("Grid:    %.1f V  %.1f Hz\n"),
+                    d.gridVoltage(), d.gridFrequency());
+    Serial.printf_P(PSTR("Output:  %.1f V  %.1f Hz\n"),
+                    d.acOutputVoltage(), d.acOutputFrequency());
+    Serial.printf_P(PSTR("Load:    %u VA  %u W  (%u%%)\n"),
+                    d.acOutputApparentPower, d.acOutputActivePower, d.loadPercent);
+    Serial.printf_P(PSTR("Battery: %.2f V  %u A  %u%%  %u C\n"),
+                    d.batteryVoltage(), d.batteryChargingCurrent,
+                    d.batteryCapacity, d.inverterTemperature);
+    Serial.printf_P(PSTR("PV1:     %.1f V  %.1f A  %u W\n"),
+                    d.pv1InputVoltage(), d.pv1InputCurrent(), d.pv1ChargingPower);
+    Serial.printf_P(PSTR("Bus:     %u V\n"), d.busVoltage);
+    Serial.println();
+  } else {
+    Serial.printf_P(PSTR("FAIL: %s\n"), inverter.lastErrorName());
   }
-  else
-  {
-    Serial.printf("QPIGS failed, err=%u\n", inverter.lastError());
-  }
-  delay(5000);
+  delay(3000);
 }
