@@ -3,31 +3,18 @@
 
 // ═══════════════════════════════════════════════════════════════
 //  VoltronicLog — Platform-aware logging
-//  ═══════════════════════════════════════════════════════════════
-//
-//  ESP8266 / ESP32:
-//      Serial.printf_P(PSTR(fmt), ...)   → formatting كامل
-//      EEPROM.begin(size) + EEPROM.commit()
-//
-//  AVR / SAMD / STM32:
-//      لا logs (توفير ~500 بايت Flash)
-//      EEPROM.begin() بدون حجم
-//
-//  الاستخدام:
-//      #include "VoltronicLog.h"
-//      VLOG("[Storage] EEPROM %u bytes\n", size);
+//  ⚠️ نستخدم ARDUINO_ARCH_* (معيار Arduino الرسمي)
 // ═══════════════════════════════════════════════════════════════
 
-// ─── Platform Detection ───
-#if defined(ESP8266) || defined(ESP32)
+#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
 #define VOLTRONIC_HAS_PRINTF_P 1
-#define VOLTRONIC_EEPROM_API 1 // begin(size) + commit()
+#define VOLTRONIC_EEPROM_API 1
 #else
 #define VOLTRONIC_HAS_PRINTF_P 0
-#define VOLTRONIC_EEPROM_API 0 // begin() فقط
+#define VOLTRONIC_EEPROM_API 0
 #endif
 
-// ─── Logging macro ───
+// ─── VLOG ───
 #if VOLTRONIC_HAS_PRINTF_P
 #define VLOG(fmt, ...) Serial.printf_P(PSTR(fmt), ##__VA_ARGS__)
 #else
