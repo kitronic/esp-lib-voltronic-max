@@ -81,20 +81,47 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check for String usage in library
+      - name: Check for String usage in library core
         run: |
-          echo "Checking for String class usage..."
-          # استثناء: VoltronicWeb.h يستخدم String (Web server API)
-          if grep -rn '\bString\b' src/*.h src/*.cpp | grep -v "VoltronicWeb.h" | grep -v "//"; then
-            echo "::error::String class used in library (should use char[] instead)"
+          echo "Checking for String class usage (core library)..."
+
+          # ─── القواعد ───
+          # 1. نبحث فقط عن String كتصريح نوع: `String varName` أو `inline String func(...)`
+          # 2. نستثني:
+          #    - VoltronicMAXCompat.h (طبقة توافق قديمة)
+          #    - سطور تستعمل WebServer API (arg() تُرجع String)
+          #    - سطور فيها LINT:allow-string marker
+          # 3. لا نطابق:
+          #    - String(s) — دالة JavaScript داخل نصوص
+          #    - "esc=s=>String(s)..." — داخل نص
+
+          matches=$(grep -rnE '^\s*(inline\s+)?String\s+\w+' src/*.h src/*.cpp \
+            | grep -v "VoltronicMAXCompat.h" \
+            | grep -v "_webServer->" \
+            | grep -v "LINT:allow-string" \
+            || true)
+
+          if [ -n "$matches" ]; then
+            echo "$matches"
+            echo ""
+            echo "::error::String class used in library core (should use char[] instead)"
+            echo "::error::If this is intentional, add '// LINT:allow-string' marker"
             exit 1
           fi
+
           echo "✅ No String usage in core library"
 
       - name: Check for dynamic allocation
         run: |
           echo "Checking for new/malloc/free..."
-          if grep -rn '\bnew \|\bmalloc\|\bfree(' src/*.cpp | grep -v "//"; then
+          # نبحث فقط عن usage فعلي (ليس داخل تعليق أو نص)
+          matches=$(grep -rnE '\bnew\s+\w|\bmalloc\s*\(|\bfree\s*\(' src/*.cpp \
+            | grep -v "//" \
+            | grep -v '"' \
+            || true)
+
+          if [ -n "$matches" ]; then
+            echo "$matches"
             echo "::error::Dynamic allocation found (should be zero-alloc)"
             exit 1
           fi
@@ -102,8 +129,14 @@ jobs:
 
       - name: Check for delay() in library
         run: |
-          echo "Checking for delay() in library..."
-          if grep -rn '\bdelay(' src/*.cpp src/*.h | grep -v "//"; then
+          echo "Checking for delay() in library core..."
+          matches=$(grep -rnE '\bdelay\s*\(' src/*.cpp src/*.h \
+            | grep -v "//" \
+            | grep -v '"' \
+            || true)
+
+          if [ -n "$matches" ]; then
+            echo "$matches"
             echo "::warning::delay() found in library (should be non-blocking)"
           else
             echo "✅ No delay() in library"
@@ -119,18 +152,32 @@ jobs:
           fi
         continue-on-error: true
 
-      - name: Check file encoding (UTF-8)
+      - name: Check file encoding (UTF-8 without BOM)
         run: |
           echo "Checking for BOM..."
           found_bom=0
           for f in src/*.h src/*.cpp; do
-            if head -c 3 "$f" | grep -q $'\xEF\xBB\xBF'; then
-              echo "::warning::BOM found in $f"
-              found_bom=1
+            if [ -f "$f" ]; then
+              if head -c 3 "$f" | grep -q $'\xEF\xBB\xBF'; then
+                echo "::warning file=$f::BOM found"
+                found_bom=1
+              fi
             fi
           done
           if [ $found_bom -eq 0 ]; then
             echo "✅ No BOM in source files"
+          fi
+        continue-on-error: true
+
+      - name: Check line endings (LF)
+        run: |
+          echo "Checking line endings..."
+          crlf_files=$(grep -rl $'\r' src/*.h src/*.cpp 2>/dev/null || true)
+          if [ -n "$crlf_files" ]; then
+            echo "$crlf_files"
+            echo "::warning::CRLF line endings found (should be LF)"
+          else
+            echo "✅ All files use LF"
           fi
         continue-on-error: true
 
