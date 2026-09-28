@@ -9,19 +9,19 @@
 namespace VoltronicPrint
 {
 
-inline void pad2(Stream &s, uint8_t v)
+inline void pad2(Stream& s, uint8_t v)
 {
   if (v < 10)
     s.print('0');
   s.print(v);
 }
 
-inline void printFixed(Stream &s, float v, uint8_t decimals)
+inline void printFixed(Stream& s, float v, uint8_t decimals)
 {
   s.print(v, decimals);
 }
 
-inline void printStatus(Stream &s, const QPIGSData &d)
+inline void printStatus(Stream& s, const QPIGSData& d)
 {
   s.print(F("Grid: "));
   s.print(d.gridVoltage(), 1);

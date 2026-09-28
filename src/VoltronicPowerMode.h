@@ -66,7 +66,7 @@ class VoltronicPowerMode
   }
 
   // ─── التحديث ───
-  void update(VoltronicMAX &inv, const VoltronicBattery &bat);
+  void update(VoltronicMAX& inv, const VoltronicBattery& bat);
 
   // ─── الحالة ───
   Mode mode() const
@@ -87,8 +87,8 @@ class VoltronicPowerMode
     _dischargeStart = 0;
   }
 
-  const char *modeNameEn() const;
-  const char *modeNameAr() const;
+  const char* modeNameEn() const;
+  const char* modeNameAr() const;
 
  private:
   Mode _mode = PM_NORMAL;

@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  English table
 // ═══════════════════════════════════════════════════════════════
-const char *const VoltronicLang::TABLE_EN[] = {
+const char* const VoltronicLang::TABLE_EN[] = {
     // Battery status
     "Charging",
     "Discharging",
@@ -101,7 +101,7 @@ const char *const VoltronicLang::TABLE_EN[] = {
 // ═══════════════════════════════════════════════════════════════
 //  Arabic table
 // ═══════════════════════════════════════════════════════════════
-const char *const VoltronicLang::TABLE_AR[] = {
+const char* const VoltronicLang::TABLE_AR[] = {
     // Battery status
     "يشحن",
     "يفرغ",
@@ -199,7 +199,7 @@ const char *const VoltronicLang::TABLE_AR[] = {
 // ═══════════════════════════════════════════════════════════════
 //  Helpers
 // ═══════════════════════════════════════════════════════════════
-const char *VoltronicLang::batteryTypeStr(uint8_t t) const
+const char* VoltronicLang::batteryTypeStr(uint8_t t) const
 {
   static const Key keys[] = {BAT_TYPE_USER,
                              BAT_TYPE_AGM,
@@ -210,7 +210,7 @@ const char *VoltronicLang::batteryTypeStr(uint8_t t) const
   return tr((t > 5) ? BAT_TYPE_USER : keys[t]);
 }
 
-const char *VoltronicLang::inverterModeStr(char m) const
+const char* VoltronicLang::inverterModeStr(char m) const
 {
   switch (m)
   {
@@ -231,7 +231,7 @@ const char *VoltronicLang::inverterModeStr(char m) const
   }
 }
 
-const char *VoltronicLang::outputPrioStr(uint8_t p) const
+const char* VoltronicLang::outputPrioStr(uint8_t p) const
 {
   switch (p)
   {
@@ -246,7 +246,7 @@ const char *VoltronicLang::outputPrioStr(uint8_t p) const
   }
 }
 
-const char *VoltronicLang::chargerPrioStr(uint8_t p) const
+const char* VoltronicLang::chargerPrioStr(uint8_t p) const
 {
   switch (p)
   {
@@ -261,12 +261,12 @@ const char *VoltronicLang::chargerPrioStr(uint8_t p) const
   }
 }
 
-const char *VoltronicLang::inputRangeStr(uint8_t r) const
+const char* VoltronicLang::inputRangeStr(uint8_t r) const
 {
   return (r == 0) ? tr(RANGE_APPLIANCE) : tr(RANGE_UPS);
 }
 
-const char *VoltronicLang::powerModeStr(uint8_t m) const
+const char* VoltronicLang::powerModeStr(uint8_t m) const
 {
   switch (m)
   {

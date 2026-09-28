@@ -36,7 +36,7 @@ class VoltronicBattery
   }
 
   // ═══ التحديث (تلقائي بعد QPIGS) ═══
-  void update(const QPIGSData &g);
+  void update(const QPIGSData& g);
 
   // ═══ النتائج ═══
   float soc() const
@@ -89,8 +89,8 @@ class VoltronicBattery
   }
 
   // ═══ معلومات ═══
-  const char *status() const;  // Charging / Discharging / Idle
-  const char *typeName() const;
+  const char* status() const;  // Charging / Discharging / Idle
+  const char* typeName() const;
   VoltronicBatteryType type() const
   {
     return _type;
@@ -121,8 +121,8 @@ class VoltronicBattery
   }
 
   // ═══ اسم النوع كنص (للواجهات) ═══
-  static const char *typeToString(VoltronicBatteryType t);
-  static VoltronicBatteryType typeFromString(const char *s);
+  static const char* typeToString(VoltronicBatteryType t);
+  static VoltronicBatteryType typeFromString(const char* s);
 
  private:
   // ─── الإعدادات ───

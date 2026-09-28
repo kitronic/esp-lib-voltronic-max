@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  Numeric helpers
 // ═══════════════════════════════════════════════════════════════
-uint16_t VoltronicParser::strToU16x10(const char *s)
+uint16_t VoltronicParser::strToU16x10(const char* s)
 {
   uint32_t intPart = 0, fracPart = 0;
   uint8_t digits = 0;
@@ -25,7 +25,7 @@ uint16_t VoltronicParser::strToU16x10(const char *s)
   return (uint16_t)(intPart * 10 + fracPart / 10);
 }
 
-uint16_t VoltronicParser::strToU16x100(const char *s)
+uint16_t VoltronicParser::strToU16x100(const char* s)
 {
   uint32_t intPart = 0, fracPart = 0;
   while (*s >= '0' && *s <= '9')
@@ -45,12 +45,12 @@ uint16_t VoltronicParser::strToU16x100(const char *s)
   return (uint16_t)(intPart * 100 + fracPart);
 }
 
-uint16_t VoltronicParser::strToU16(const char *s)
+uint16_t VoltronicParser::strToU16(const char* s)
 {
   return (uint16_t)strtoul(s, nullptr, 10);
 }
 
-uint8_t VoltronicParser::strToU8(const char *s)
+uint8_t VoltronicParser::strToU8(const char* s)
 {
   return (uint8_t)strtoul(s, nullptr, 10);
 }
@@ -58,13 +58,13 @@ uint8_t VoltronicParser::strToU8(const char *s)
 // ═══════════════════════════════════════════════════════════════
 //  Helpers
 // ═══════════════════════════════════════════════════════════════
-void VoltronicParser::skipSpaces(const char *&p)
+void VoltronicParser::skipSpaces(const char*& p)
 {
   while (*p == ' ')
     p++;
 }
 
-bool VoltronicParser::readToken(const char *&p, char *out, size_t maxLen)
+bool VoltronicParser::readToken(const char*& p, char* out, size_t maxLen)
 {
   if (maxLen == 0)
   {
@@ -80,7 +80,7 @@ bool VoltronicParser::readToken(const char *&p, char *out, size_t maxLen)
   return i > 0;
 }
 
-bool VoltronicParser::readUInt(const char *&p, uint32_t &out, uint8_t digits)
+bool VoltronicParser::readUInt(const char*& p, uint32_t& out, uint8_t digits)
 {
   out = 0;
   for (uint8_t i = 0; i < digits; i++)
@@ -93,7 +93,7 @@ bool VoltronicParser::readUInt(const char *&p, uint32_t &out, uint8_t digits)
   return true;
 }
 
-bool VoltronicParser::readBits(const char *&p, uint8_t n, uint32_t &out)
+bool VoltronicParser::readBits(const char*& p, uint8_t n, uint32_t& out)
 {
   out = 0;
   for (uint8_t i = 0; i < n; i++)
@@ -110,9 +110,9 @@ bool VoltronicParser::readBits(const char *&p, uint8_t n, uint32_t &out)
 // ═══════════════════════════════════════════════════════════════
 //  QPIGS
 // ═══════════════════════════════════════════════════════════════
-bool VoltronicParser::parseQPIGS(const char *payload, QPIGSData &out)
+bool VoltronicParser::parseQPIGS(const char* payload, QPIGSData& out)
 {
-  const char *p = payload;
+  const char* p = payload;
   if (*p != '(')
     return false;
   p++;
@@ -122,7 +122,7 @@ bool VoltronicParser::parseQPIGS(const char *payload, QPIGSData &out)
   {
     return readToken(p, tok, sizeof(tok));
   };
-  auto toU32 = [&](uint32_t &v)
+  auto toU32 = [&](uint32_t& v)
   {
     v = (uint32_t)strtoul(tok, nullptr, 10);
   };
@@ -240,9 +240,9 @@ bool VoltronicParser::parseQPIGS(const char *payload, QPIGSData &out)
 // ═══════════════════════════════════════════════════════════════
 //  QPIGS2
 // ═══════════════════════════════════════════════════════════════
-bool VoltronicParser::parseQPIGS2(const char *payload, QPIGS2Data &out)
+bool VoltronicParser::parseQPIGS2(const char* payload, QPIGS2Data& out)
 {
-  const char *p = payload;
+  const char* p = payload;
   if (*p != '(')
     return false;
   p++;
@@ -273,9 +273,9 @@ bool VoltronicParser::parseQPIGS2(const char *payload, QPIGS2Data &out)
 // ═══════════════════════════════════════════════════════════════
 //  QPIRI
 // ═══════════════════════════════════════════════════════════════
-bool VoltronicParser::parseQPIRI(const char *payload, QPIRIData &out)
+bool VoltronicParser::parseQPIRI(const char* payload, QPIRIData& out)
 {
-  const char *p = payload;
+  const char* p = payload;
   if (*p != '(')
     return false;
   p++;
@@ -285,7 +285,7 @@ bool VoltronicParser::parseQPIRI(const char *payload, QPIRIData &out)
   {
     return readToken(p, tok, sizeof(tok));
   };
-  auto toU32 = [&](uint32_t &v)
+  auto toU32 = [&](uint32_t& v)
   {
     v = (uint32_t)strtoul(tok, nullptr, 10);
   };
@@ -384,9 +384,9 @@ bool VoltronicParser::parseQPIRI(const char *payload, QPIRIData &out)
 // ═══════════════════════════════════════════════════════════════
 //  QMOD
 // ═══════════════════════════════════════════════════════════════
-bool VoltronicParser::parseQMOD(const char *payload, char &modeOut)
+bool VoltronicParser::parseQMOD(const char* payload, char& modeOut)
 {
-  const char *p = payload;
+  const char* p = payload;
   if (*p != '(')
     return false;
   p++;
@@ -399,9 +399,9 @@ bool VoltronicParser::parseQMOD(const char *payload, char &modeOut)
 // ═══════════════════════════════════════════════════════════════
 //  QPIWS — 36 bits (32 سابقاً)
 // ═══════════════════════════════════════════════════════════════
-bool VoltronicParser::parseQPIWS(const char *payload, uint64_t &warningsOut)
+bool VoltronicParser::parseQPIWS(const char* payload, uint64_t& warningsOut)
 {
-  const char *p = payload;
+  const char* p = payload;
   if (*p != '(')
     return false;
   p++;
@@ -421,9 +421,9 @@ bool VoltronicParser::parseQPIWS(const char *payload, uint64_t &warningsOut)
 // ═══════════════════════════════════════════════════════════════
 //  QFLAG — يعبّي raw + flags
 // ═══════════════════════════════════════════════════════════════
-bool VoltronicParser::parseQFLAG(const char *payload, QFLAGData &out)
+bool VoltronicParser::parseQFLAG(const char* payload, QFLAGData& out)
 {
-  const char *p = payload;
+  const char* p = payload;
   if (*p != '(')
     return false;
   p++;
@@ -437,7 +437,7 @@ bool VoltronicParser::parseQFLAG(const char *payload, QFLAGData &out)
   auto hasFlag = [&](char c) -> bool
   {
     bool enabled = false;
-    for (const char *q = p; *q; q++)
+    for (const char* q = p; *q; q++)
     {
       if (*q == c && q > p)
       {
@@ -478,9 +478,9 @@ bool VoltronicParser::parseQFLAG(const char *payload, QFLAGData &out)
 // ═══════════════════════════════════════════════════════════════
 //  QPGSn
 // ═══════════════════════════════════════════════════════════════
-bool VoltronicParser::parseQPGSn(const char *payload, ParallelInfo &out)
+bool VoltronicParser::parseQPGSn(const char* payload, ParallelInfo& out)
 {
-  const char *p = payload;
+  const char* p = payload;
   if (*p != '(')
     return false;
   p++;
@@ -591,9 +591,9 @@ bool VoltronicParser::parseQPGSn(const char *payload, ParallelInfo &out)
 // ═══════════════════════════════════════════════════════════════
 //  QBEQI
 // ═══════════════════════════════════════════════════════════════
-bool VoltronicParser::parseQBEQI(const char *payload, BatteryEqualizationInfo &out)
+bool VoltronicParser::parseQBEQI(const char* payload, BatteryEqualizationInfo& out)
 {
-  const char *p = payload;
+  const char* p = payload;
   if (*p != '(')
     return false;
   p++;
@@ -632,9 +632,9 @@ bool VoltronicParser::parseQBEQI(const char *payload, BatteryEqualizationInfo &o
 // ═══════════════════════════════════════════════════════════════
 //  QLED
 // ═══════════════════════════════════════════════════════════════
-bool VoltronicParser::parseQLED(const char *payload, LedInfo &out)
+bool VoltronicParser::parseQLED(const char* payload, LedInfo& out)
 {
-  const char *p = payload;
+  const char* p = payload;
   if (*p != '(')
     return false;
   p++;
@@ -679,9 +679,9 @@ bool VoltronicParser::parseQLED(const char *payload, LedInfo &out)
 // ═══════════════════════════════════════════════════════════════
 //  QDI
 // ═══════════════════════════════════════════════════════════════
-bool VoltronicParser::parseQDI(const char *payload, DefaultsInfo &out)
+bool VoltronicParser::parseQDI(const char* payload, DefaultsInfo& out)
 {
-  const char *p = payload;
+  const char* p = payload;
   if (*p != '(')
     return false;
   p++;
@@ -735,9 +735,9 @@ bool VoltronicParser::parseQDI(const char *payload, DefaultsInfo &out)
 // ═══════════════════════════════════════════════════════════════
 //  QBATCD
 // ═══════════════════════════════════════════════════════════════
-bool VoltronicParser::parseQBATCDRaw(const char *payload, char &a, char &b, char &c)
+bool VoltronicParser::parseQBATCDRaw(const char* payload, char& a, char& b, char& c)
 {
-  const char *p = payload;
+  const char* p = payload;
   if (*p != '(')
     return false;
   p++;
@@ -749,7 +749,7 @@ bool VoltronicParser::parseQBATCDRaw(const char *payload, char &a, char &b, char
   return true;
 }
 
-bool VoltronicParser::parseQBATCD(const char *payload, BatteryControlStatus &out)
+bool VoltronicParser::parseQBATCD(const char* payload, BatteryControlStatus& out)
 {
   char a, b, c;
   if (!parseQBATCDRaw(payload, a, b, c))
@@ -763,9 +763,9 @@ bool VoltronicParser::parseQBATCD(const char *payload, BatteryControlStatus &out
 // ═══════════════════════════════════════════════════════════════
 //  QMCHGCR / QMUCHGCR
 // ═══════════════════════════════════════════════════════════════
-bool VoltronicParser::parseQMCHGCR(const char *payload, SelectableValues &out)
+bool VoltronicParser::parseQMCHGCR(const char* payload, SelectableValues& out)
 {
-  const char *p = payload;
+  const char* p = payload;
   if (*p != '(')
     return false;
   p++;
@@ -778,7 +778,7 @@ bool VoltronicParser::parseQMCHGCR(const char *payload, SelectableValues &out)
   return out.count > 0;
 }
 
-bool VoltronicParser::parseQMUCHGCR(const char *payload, SelectableValues &out)
+bool VoltronicParser::parseQMUCHGCR(const char* payload, SelectableValues& out)
 {
   return parseQMCHGCR(payload, out);
 }
@@ -786,9 +786,9 @@ bool VoltronicParser::parseQMUCHGCR(const char *payload, SelectableValues &out)
 // ═══════════════════════════════════════════════════════════════
 //  QOPPT / QCHPT
 // ═══════════════════════════════════════════════════════════════
-bool VoltronicParser::parseQOPPT(const char *payload, TimeOrderInfo &out)
+bool VoltronicParser::parseQOPPT(const char* payload, TimeOrderInfo& out)
 {
-  const char *p = payload;
+  const char* p = payload;
   if (*p != '(')
     return false;
   p++;
@@ -809,7 +809,7 @@ bool VoltronicParser::parseQOPPT(const char *payload, TimeOrderInfo &out)
   return true;
 }
 
-bool VoltronicParser::parseQCHPT(const char *payload, TimeOrderInfo &out)
+bool VoltronicParser::parseQCHPT(const char* payload, TimeOrderInfo& out)
 {
   return parseQOPPT(payload, out);
 }
@@ -817,9 +817,9 @@ bool VoltronicParser::parseQCHPT(const char *payload, TimeOrderInfo &out)
 // ═══════════════════════════════════════════════════════════════
 //  QBOOT
 // ═══════════════════════════════════════════════════════════════
-bool VoltronicParser::parseQBOOT(const char *payload, bool &hasBootstrap)
+bool VoltronicParser::parseQBOOT(const char* payload, bool& hasBootstrap)
 {
-  const char *p = payload;
+  const char* p = payload;
   if (*p != '(')
     return false;
   p++;
@@ -830,7 +830,7 @@ bool VoltronicParser::parseQBOOT(const char *payload, bool &hasBootstrap)
 // ═══════════════════════════════════════════════════════════════
 //  modeToString
 // ═══════════════════════════════════════════════════════════════
-const char *VoltronicParser::modeToString(char m)
+const char* VoltronicParser::modeToString(char m)
 {
   switch (m)
   {

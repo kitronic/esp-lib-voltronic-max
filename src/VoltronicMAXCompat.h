@@ -8,9 +8,9 @@
 
 // Global instance — يتعرف على SoftwareSerial أو HardwareSerial
 // بما إن Stream هي base class، الاثنين يشتغلوا
-extern VoltronicMAX *voltronicInstance;
+extern VoltronicMAX* voltronicInstance;
 
-inline void voltronicAttach(Stream &serial, uint32_t baud = 2400)
+inline void voltronicAttach(Stream& serial, uint32_t baud = 2400)
 {
   static VoltronicMAX inst(serial);
   voltronicInstance = &inst;
@@ -29,13 +29,13 @@ inline String sendInverterCmd(String cmd)
   return String(voltronicInstance->lastResponse());
 }
 
-inline String sendInverterCmd(const char *cmd)
+inline String sendInverterCmd(const char* cmd)
 {
   return sendInverterCmd(String(cmd));
 }
 
 // ─── CRC ───
-inline uint16_t calculateCRC(const uint8_t *p, uint8_t len)
+inline uint16_t calculateCRC(const uint8_t* p, uint8_t len)
 {
   return voltronicCRC(p, len);
 }

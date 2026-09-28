@@ -26,7 +26,7 @@ VoltronicSmartCharger::VoltronicSmartCharger()
   _stage[2] = 'l';
   _stage[3] = 'e';
   _stage[4] = '\0';
-  const char *init = "Starting...";
+  const char* init = "Starting...";
   strncpy(_status, init, sizeof(_status) - 1);
   _status[sizeof(_status) - 1] = '\0';
 }
@@ -34,7 +34,7 @@ VoltronicSmartCharger::VoltronicSmartCharger()
 // ═══════════════════════════════════════════════════════════════
 //  تحميل الخيارات من الإنفرتر (مرة واحدة + تحديث دوري)
 // ═══════════════════════════════════════════════════════════════
-void VoltronicSmartCharger::_loadOptionsIfNeeded(VoltronicMAX &inv)
+void VoltronicSmartCharger::_loadOptionsIfNeeded(VoltronicMAX& inv)
 {
   // كل 1 ساعة نعيد تحميل الخيارات (نادراً ما تتغير)
   static uint32_t lastLoad = 0;
@@ -74,7 +74,7 @@ void VoltronicSmartCharger::_loadOptionsIfNeeded(VoltronicMAX &inv)
 // ═══════════════════════════════════════════════════════════════
 uint8_t VoltronicSmartCharger::_pickClosest(bool ac, uint8_t desired) const
 {
-  const SelectableValues &s = ac ? _acOptions : _totalOptions;
+  const SelectableValues& s = ac ? _acOptions : _totalOptions;
   if (s.count == 0)
     return desired;
 
@@ -97,7 +97,7 @@ uint8_t VoltronicSmartCharger::_pickClosest(bool ac, uint8_t desired) const
 // ═══════════════════════════════════════════════════════════════
 uint8_t VoltronicSmartCharger::_stepDown(uint8_t cur, uint8_t target, bool ac) const
 {
-  const SelectableValues &s = ac ? _acOptions : _totalOptions;
+  const SelectableValues& s = ac ? _acOptions : _totalOptions;
   uint8_t best = cur;
   for (uint8_t i = 0; i < s.count; i++)
   {
@@ -126,7 +126,7 @@ uint8_t VoltronicSmartCharger::_stepDown(uint8_t cur, uint8_t target, bool ac) c
 // ═══════════════════════════════════════════════════════════════
 uint8_t VoltronicSmartCharger::_stepUp(uint8_t cur, uint8_t target, bool ac) const
 {
-  const SelectableValues &s = ac ? _acOptions : _totalOptions;
+  const SelectableValues& s = ac ? _acOptions : _totalOptions;
   uint8_t result = cur;
   for (uint8_t i = 0; i < s.count; i++)
   {
@@ -141,7 +141,7 @@ uint8_t VoltronicSmartCharger::_stepUp(uint8_t cur, uint8_t target, bool ac) con
 }
 
 // ═══════════════════════════════════════════════════════════════
-void VoltronicSmartCharger::_applyAC(VoltronicMAX &inv, uint8_t amps)
+void VoltronicSmartCharger::_applyAC(VoltronicMAX& inv, uint8_t amps)
 {
   if (amps == _currentAC)
     return;
@@ -153,7 +153,7 @@ void VoltronicSmartCharger::_applyAC(VoltronicMAX &inv, uint8_t amps)
   }
 }
 
-void VoltronicSmartCharger::_applyTotal(VoltronicMAX &inv, uint8_t amps)
+void VoltronicSmartCharger::_applyTotal(VoltronicMAX& inv, uint8_t amps)
 {
   if (amps == _currentTotal)
     return;
@@ -165,7 +165,7 @@ void VoltronicSmartCharger::_applyTotal(VoltronicMAX &inv, uint8_t amps)
   }
 }
 
-void VoltronicSmartCharger::_setStatus(const char *fmt, ...)
+void VoltronicSmartCharger::_setStatus(const char* fmt, ...)
 {
   va_list ap;
   va_start(ap, fmt);
@@ -173,7 +173,7 @@ void VoltronicSmartCharger::_setStatus(const char *fmt, ...)
   va_end(ap);
 }
 
-void VoltronicSmartCharger::_setStage(const char *s)
+void VoltronicSmartCharger::_setStage(const char* s)
 {
   strncpy(_stage, s, sizeof(_stage) - 1);
   _stage[sizeof(_stage) - 1] = '\0';
@@ -182,11 +182,11 @@ void VoltronicSmartCharger::_setStage(const char *s)
 // ═══════════════════════════════════════════════════════════════
 //  التحديث الرئيسي
 // ═══════════════════════════════════════════════════════════════
-void VoltronicSmartCharger::update(VoltronicMAX &inv, const VoltronicBattery &bat)
+void VoltronicSmartCharger::update(VoltronicMAX& inv, const VoltronicBattery& bat)
 {
   _loadOptionsIfNeeded(inv);
 
-  const QPIGSData &g = inv.qpigs();
+  const QPIGSData& g = inv.qpigs();
   _currentAC = inv.qpiri().maxACChargingCurrent;
   _currentTotal = inv.qpiri().maxChargingCurrent;
   _currentAC = _pickClosest(true, _currentAC);
@@ -367,7 +367,7 @@ void VoltronicSmartCharger::update(VoltronicMAX &inv, const VoltronicBattery &ba
   }
 }
 
-const char *VoltronicSmartCharger::modeToString(Mode m) const
+const char* VoltronicSmartCharger::modeToString(Mode m) const
 {
   switch (m)
   {

@@ -126,7 +126,7 @@ void VoltronicBattery::setCycleCount(uint16_t c)
 // ═══════════════════════════════════════════════════════════════
 //  التحديث
 // ═══════════════════════════════════════════════════════════════
-void VoltronicBattery::update(const QPIGSData &g)
+void VoltronicBattery::update(const QPIGSData& g)
 {
   if (!_enabled)
     return;
@@ -175,7 +175,7 @@ void VoltronicBattery::update(const QPIGSData &g)
 // ═══════════════════════════════════════════════════════════════
 float VoltronicBattery::_socFromVoltage(float v) const
 {
-  const float(*curve)[2] = nullptr;
+  const float (*curve)[2] = nullptr;
   size_t n = 0;
 
   switch (_type)
@@ -226,7 +226,7 @@ float VoltronicBattery::_socFromVoltage(float v) const
 // ═══════════════════════════════════════════════════════════════
 //  Helpers
 // ═══════════════════════════════════════════════════════════════
-const char *VoltronicBattery::status() const
+const char* VoltronicBattery::status() const
 {
   if (_netCurrent > 0.5f)
     return "Charging";
@@ -235,12 +235,12 @@ const char *VoltronicBattery::status() const
   return "Idle";
 }
 
-const char *VoltronicBattery::typeName() const
+const char* VoltronicBattery::typeName() const
 {
   return typeToString(_type);
 }
 
-const char *VoltronicBattery::typeToString(VoltronicBatteryType t)
+const char* VoltronicBattery::typeToString(VoltronicBatteryType t)
 {
   switch (t)
   {
@@ -261,7 +261,7 @@ const char *VoltronicBattery::typeToString(VoltronicBatteryType t)
   }
 }
 
-VoltronicBatteryType VoltronicBattery::typeFromString(const char *s)
+VoltronicBatteryType VoltronicBattery::typeFromString(const char* s)
 {
   if (!s)
     return VoltronicBatteryType::User;

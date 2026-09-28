@@ -8,10 +8,10 @@ VoltronicPowerMode::VoltronicPowerMode()
 // ═══════════════════════════════════════════════════════════════
 //  التحديث — كل العتبات من إعدادات المستخدم
 // ═══════════════════════════════════════════════════════════════
-void VoltronicPowerMode::update(VoltronicMAX &inv, const VoltronicBattery &bat)
+void VoltronicPowerMode::update(VoltronicMAX& inv, const VoltronicBattery& bat)
 {
-  const QPIGSData &g = inv.qpigs();
-  const QPIGS2Data &g2 = inv.qpigs2();
+  const QPIGSData& g = inv.qpigs();
+  const QPIGS2Data& g2 = inv.qpigs2();
 
   float soc = bat.soc();
 
@@ -94,7 +94,7 @@ void VoltronicPowerMode::update(VoltronicMAX &inv, const VoltronicBattery &bat)
 // ═══════════════════════════════════════════════════════════════
 //  Names
 // ═══════════════════════════════════════════════════════════════
-const char *VoltronicPowerMode::modeNameAr() const
+const char* VoltronicPowerMode::modeNameAr() const
 {
   switch (_mode)
   {
@@ -115,7 +115,7 @@ const char *VoltronicPowerMode::modeNameAr() const
   }
 }
 
-const char *VoltronicPowerMode::modeNameEn() const
+const char* VoltronicPowerMode::modeNameEn() const
 {
   switch (_mode)
   {

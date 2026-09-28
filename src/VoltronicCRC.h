@@ -37,7 +37,7 @@ constexpr uint8_t UNESC_29 = 0x29;
 // ═══════════════════════════════════════════════════════════════
 //  CRC-16/XMODEM — حساب لكل الـ buffer
 // ═══════════════════════════════════════════════════════════════
-inline uint16_t voltronicCRC(const uint8_t *data, size_t len)
+inline uint16_t voltronicCRC(const uint8_t* data, size_t len)
 {
   uint16_t crc = VoltronicCRCDetail::INIT;
   for (size_t i = 0; i < len; i++)
@@ -103,7 +103,7 @@ inline uint8_t voltronicUnescapeByte(uint8_t b)
 // ═══════════════════════════════════════════════════════════════
 //  تحويل CRC إلى بايتين (Hi, Lo) مع خيار التهريب
 // ═══════════════════════════════════════════════════════════════
-inline void voltronicCRCBytes(uint16_t crc, uint8_t &hi, uint8_t &lo, bool applyEscape)
+inline void voltronicCRCBytes(uint16_t crc, uint8_t& hi, uint8_t& lo, bool applyEscape)
 {
   hi = (uint8_t)((crc >> 8) & 0xFF);
   lo = (uint8_t)(crc & 0xFF);

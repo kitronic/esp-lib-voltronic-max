@@ -22,14 +22,14 @@
 class VoltronicTransport
 {
  public:
-  explicit VoltronicTransport(Stream &serial)
+  explicit VoltronicTransport(Stream& serial)
     : _serial(serial)
     , _cfg(nullptr)
   {
   }
 
   // Bind config (called from VoltronicMAX::begin)
-  void attachConfig(const VoltronicConfig *cfg)
+  void attachConfig(const VoltronicConfig* cfg)
   {
     _cfg = cfg;
   }
@@ -47,7 +47,7 @@ class VoltronicTransport
   }
 
   // Send a complete frame
-  void writeRaw(const uint8_t *data, size_t len)
+  void writeRaw(const uint8_t* data, size_t len)
   {
     _serial.write(data, len);
     _serial.flush();
@@ -65,7 +65,7 @@ class VoltronicTransport
   //    3. Return count of collected bytes (excluding CR)
   //    4. Return 0 on timeout
   // ===============================================================
-  size_t readUntilCR(uint8_t *buffer, size_t maxLen)
+  size_t readUntilCR(uint8_t* buffer, size_t maxLen)
   {
     if (!_cfg)
       return 0;
@@ -109,12 +109,12 @@ class VoltronicTransport
   }
 
   // Direct access (for debugging only)
-  Stream &stream()
+  Stream& stream()
   {
     return _serial;
   }
 
  private:
-  Stream &_serial;
-  const VoltronicConfig *_cfg;
+  Stream& _serial;
+  const VoltronicConfig* _cfg;
 };

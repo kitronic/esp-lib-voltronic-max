@@ -131,7 +131,7 @@ class VoltronicLang
   }
 
   // ─── الترجمة ───
-  const char *tr(Key k) const
+  const char* tr(Key k) const
   {
     if (k >= _KEY_COUNT)
       return "?";
@@ -139,14 +139,14 @@ class VoltronicLang
   }
 
   // ─── تحويلات جاهزة ───
-  const char *batteryTypeStr(uint8_t t) const;
-  const char *inverterModeStr(char m) const;
-  const char *outputPrioStr(uint8_t p) const;
-  const char *chargerPrioStr(uint8_t p) const;
-  const char *inputRangeStr(uint8_t r) const;
-  const char *powerModeStr(
+  const char* batteryTypeStr(uint8_t t) const;
+  const char* inverterModeStr(char m) const;
+  const char* outputPrioStr(uint8_t p) const;
+  const char* chargerPrioStr(uint8_t p) const;
+  const char* inputRangeStr(uint8_t r) const;
+  const char* powerModeStr(
       uint8_t m) const;  // ─── Charging Status Code (bits 2-0 من QPIGS.deviceStatus) ───
-  const char *chargingCodeStr(uint8_t code) const
+  const char* chargingCodeStr(uint8_t code) const
   {
     switch (code)
     {
@@ -174,6 +174,6 @@ class VoltronicLang
  private:
   Language _lang;
 
-  static const char *const TABLE_EN[_KEY_COUNT];
-  static const char *const TABLE_AR[_KEY_COUNT];
+  static const char* const TABLE_EN[_KEY_COUNT];
+  static const char* const TABLE_AR[_KEY_COUNT];
 };

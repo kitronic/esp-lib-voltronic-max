@@ -26,9 +26,9 @@ VoltronicStorage::VoltronicStorage()
 }
 
 // ─── CRC16 (XMODEM, no escape) ───
-uint16_t VoltronicStorage::_calcCRC(const Data &d)
+uint16_t VoltronicStorage::_calcCRC(const Data& d)
 {
-  const uint8_t *p = (const uint8_t *)&d;
+  const uint8_t* p = (const uint8_t*)&d;
   size_t len = sizeof(Data) - sizeof(d.crc) - sizeof(d._padEnd);
   uint16_t crc = 0;
   for (size_t i = 0; i < len; i++)
@@ -49,7 +49,7 @@ void VoltronicStorage::begin(uint16_t eepromSize)
 }
 
 // ═══════════════════════════════════════════════════════════════
-void VoltronicStorage::load(VoltronicMAX &inv)
+void VoltronicStorage::load(VoltronicMAX& inv)
 {
   EEPROM.get(0, _data);
 
@@ -79,7 +79,7 @@ void VoltronicStorage::load(VoltronicMAX &inv)
 }
 
 // ═══════════════════════════════════════════════════════════════
-void VoltronicStorage::save(const VoltronicMAX &inv)
+void VoltronicStorage::save(const VoltronicMAX& inv)
 {
   _captureFrom(inv);
   _data.magic = MAGIC;
@@ -137,7 +137,7 @@ void VoltronicStorage::reset()
 }
 
 // ═══════════════════════════════════════════════════════════════
-void VoltronicStorage::_applyTo(VoltronicMAX &inv)
+void VoltronicStorage::_applyTo(VoltronicMAX& inv)
 {
   // Battery
   inv.battery.setType((VoltronicBatteryType)_data.batteryType);
@@ -188,7 +188,7 @@ void VoltronicStorage::_applyTo(VoltronicMAX &inv)
 }
 
 // ═══════════════════════════════════════════════════════════════
-void VoltronicStorage::_captureFrom(const VoltronicMAX &inv)
+void VoltronicStorage::_captureFrom(const VoltronicMAX& inv)
 {
   // Battery
   _data.batteryType = (uint8_t)inv.battery.type();
@@ -218,7 +218,7 @@ void VoltronicStorage::_captureFrom(const VoltronicMAX &inv)
 }
 
 // ═══════════════════════════════════════════════════════════════
-void VoltronicStorage::tick(VoltronicMAX &inv)
+void VoltronicStorage::tick(VoltronicMAX& inv)
 {
   if (!_dirty)
     return;

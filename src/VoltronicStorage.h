@@ -17,8 +17,8 @@ class VoltronicStorage
 
   // ─── Lifecycle ───
   void begin(uint16_t eepromSize = 512);
-  void load(VoltronicMAX &inv);
-  void save(const VoltronicMAX &inv);
+  void load(VoltronicMAX& inv);
+  void save(const VoltronicMAX& inv);
   void reset();
 
   // ─── حالة ───
@@ -41,7 +41,7 @@ class VoltronicStorage
     _dirty = true;
     _lastChange = millis();
   }
-  void tick(VoltronicMAX &inv);  // احفظ تلقائياً بعد 5 ثواني من آخر تغيير
+  void tick(VoltronicMAX& inv);  // احفظ تلقائياً بعد 5 ثواني من آخر تغيير
 
  private:
   struct Data
@@ -92,7 +92,7 @@ class VoltronicStorage
   uint32_t _lastChange = 0;
   uint16_t _size = 512;
 
-  static uint16_t _calcCRC(const Data &d);
-  void _applyTo(VoltronicMAX &inv);
-  void _captureFrom(const VoltronicMAX &inv);
+  static uint16_t _calcCRC(const Data& d);
+  void _applyTo(VoltronicMAX& inv);
+  void _captureFrom(const VoltronicMAX& inv);
 };

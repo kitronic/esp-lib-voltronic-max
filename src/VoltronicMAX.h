@@ -48,28 +48,28 @@ class VoltronicMAX
     ERR_TOO_LONG,
   };
 
-  explicit VoltronicMAX(Stream &serial);
+  explicit VoltronicMAX(Stream& serial);
 
   // ─── Init ───
-  bool begin(const VoltronicConfig &cfg);
+  bool begin(const VoltronicConfig& cfg);
   bool begin(uint32_t baud = VOLTRONIC_DEFAULT_BAUD);
   void setTimeout(uint16_t ms);
   void setRetries(uint8_t r);
 
   // ─── Raw ───
-  bool sendRaw(const char *cmd);
-  bool sendRawSetting(const char *cmd);
+  bool sendRaw(const char* cmd);
+  bool sendRawSetting(const char* cmd);
 
   // ─── Inquiry (25) ───
-  bool queryProtocolID(char *out, size_t len);
-  bool querySerialNumber(char *out, size_t len);
-  bool querySerialNumberLong(char *out, size_t len);
-  bool queryFirmware(char *out, size_t len);
-  bool queryFirmware2(char *out, size_t len);
-  bool queryBluetoothVersion(char *out, size_t len);
-  bool queryModelName(char *out, size_t len);
-  bool queryGeneralModelName(char *out, size_t len);
-  bool queryBoot(bool &hasBootstrap);
+  bool queryProtocolID(char* out, size_t len);
+  bool querySerialNumber(char* out, size_t len);
+  bool querySerialNumberLong(char* out, size_t len);
+  bool queryFirmware(char* out, size_t len);
+  bool queryFirmware2(char* out, size_t len);
+  bool queryBluetoothVersion(char* out, size_t len);
+  bool queryModelName(char* out, size_t len);
+  bool queryGeneralModelName(char* out, size_t len);
+  bool queryBoot(bool& hasBootstrap);
   bool queryRating();
   bool queryGeneralStatus();
   bool queryGeneralStatus2();
@@ -81,7 +81,7 @@ class VoltronicMAX
   bool queryBatteryEqualization();
   bool queryLed();
   bool queryBatteryControl();
-  bool queryTime(char *out, size_t len);
+  bool queryTime(char* out, size_t len);
   bool queryMaxChargingCurrents();
   bool queryMaxUtilityChargingCurrents();
   bool queryOutputPriorityTimeOrder();
@@ -116,59 +116,59 @@ class VoltronicMAX
   bool setBatteryEqualizationOverTime(uint16_t min);
   bool activateBatteryEqualization(bool active);
   bool setMaxCvChargingTime(uint16_t min);
-  bool setDateTime(const char *yymmddhhmmss);
+  bool setDateTime(const char* yymmddhhmmss);
   bool setBatteryControl(uint8_t a, uint8_t b, uint8_t c);
 
   // ─── Data access ───
-  const QPIGSData &qpigs() const
+  const QPIGSData& qpigs() const
   {
     return _qpigs;
   }
-  const QPIGS2Data &qpigs2() const
+  const QPIGS2Data& qpigs2() const
   {
     return _qpigs2;
   }
-  const QPIRIData &qpiri() const
+  const QPIRIData& qpiri() const
   {
     return _qpiri;
   }
-  const QFLAGData &qflag() const
+  const QFLAGData& qflag() const
   {
     return _qflag;
   }
-  const ParallelInfo &parallel() const
+  const ParallelInfo& parallel() const
   {
     return _parallel;
   }
-  const BatteryEqualizationInfo &equalization() const
+  const BatteryEqualizationInfo& equalization() const
   {
     return _beqi;
   }
-  const LedInfo &led() const
+  const LedInfo& led() const
   {
     return _led;
   }
-  const DefaultsInfo &defaults() const
+  const DefaultsInfo& defaults() const
   {
     return _defaults;
   }
-  const BatteryControlStatus &batteryCtrl() const
+  const BatteryControlStatus& batteryCtrl() const
   {
     return _batcd;
   }
-  const SelectableValues &maxChgOptions() const
+  const SelectableValues& maxChgOptions() const
   {
     return _maxChg;
   }
-  const SelectableValues &maxUtilChgOptions() const
+  const SelectableValues& maxUtilChgOptions() const
   {
     return _maxUtilChg;
   }
-  const TimeOrderInfo &outputTimeOrder() const
+  const TimeOrderInfo& outputTimeOrder() const
   {
     return _outputTO;
   }
-  const TimeOrderInfo &chargerTimeOrder() const
+  const TimeOrderInfo& chargerTimeOrder() const
   {
     return _chargerTO;
   }
@@ -183,7 +183,7 @@ class VoltronicMAX
   {
     return _mode;
   }
-  const char *modeString() const
+  const char* modeString() const
   {
     return VoltronicParser::modeToString(_mode);
   }
@@ -197,7 +197,7 @@ class VoltronicMAX
   }
 
   // ─── Polling ───
-  void startPolling(const VoltronicPollSchedule &schedule);
+  void startPolling(const VoltronicPollSchedule& schedule);
   void startPolling();
   void stopPolling();
   bool poll();
@@ -215,11 +215,11 @@ class VoltronicMAX
   {
     return _lastError;
   }
-  const char *lastResponse() const
+  const char* lastResponse() const
   {
     return _respBuf;
   }
-  const char *lastCommand() const
+  const char* lastCommand() const
   {
     return _cmdBuf;
   }
@@ -227,15 +227,15 @@ class VoltronicMAX
   {
     return _respLen;
   }
-  const char *lastErrorName() const;
+  const char* lastErrorName() const;
 
   // ═══════════════════════════════════════════════════════════
   //  Web Console (opt-in)
   // ═══════════════════════════════════════════════════════════
 #if defined(VOLTRONIC_USE_WEB)
-  void attachWebServer(VoltWebServer *server);
-  void attachWebServer(VoltWebServer *server, const char *user, const char *pass);
-  void setWebPrefix(const char *prefix);
+  void attachWebServer(VoltWebServer* server);
+  void attachWebServer(VoltWebServer* server, const char* user, const char* pass);
+  void setWebPrefix(const char* prefix);
 #endif
 
  private:
@@ -276,12 +276,12 @@ class VoltronicMAX
   bool _pollCycleDone = false;
 
   // ─── Helpers ───
-  bool transact(const char *cmd, bool expectAck);
-  bool buildFrame(const char *cmd, uint8_t *out, size_t &outLen);
+  bool transact(const char* cmd, bool expectAck);
+  bool buildFrame(const char* cmd, uint8_t* out, size_t& outLen);
   bool checkCRC();
   bool isAck() const;
   bool isNak() const;
-  const char *payloadStart() const;
+  const char* payloadStart() const;
   void applyPrintableFilter();
   bool execPollQuery(uint8_t idx);
   uint16_t getPollInterval(uint8_t idx) const;
@@ -290,7 +290,7 @@ class VoltronicMAX
   //  Web members (opt-in)
   // ═══════════════════════════════════════════════════════════
 #if defined(VOLTRONIC_USE_WEB)
-  VoltWebServer *_webServer = nullptr;
+  VoltWebServer* _webServer = nullptr;
   char _webPrefix[24];
   char _webUser[32];
   char _webPass[64];

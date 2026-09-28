@@ -49,7 +49,7 @@ class VoltronicSmartCharger
   }
 
   // ─── التحديث ───
-  void update(VoltronicMAX &inv, const VoltronicBattery &bat);
+  void update(VoltronicMAX& inv, const VoltronicBattery& bat);
 
   // ─── القراءات ───
   Mode mode() const
@@ -88,11 +88,11 @@ class VoltronicSmartCharger
   {
     return _currentTotal;
   }
-  const char *stage() const
+  const char* stage() const
   {
     return _stage;
   }
-  const char *status() const
+  const char* status() const
   {
     return _status;
   }
@@ -125,16 +125,16 @@ class VoltronicSmartCharger
     return _optionsLoaded;
   }
 
-  const SelectableValues &acOptions() const
+  const SelectableValues& acOptions() const
   {
     return _acOptions;
   }
-  const SelectableValues &totalOptions() const
+  const SelectableValues& totalOptions() const
   {
     return _totalOptions;
   }
 
-  const char *modeToString(Mode m) const;
+  const char* modeToString(Mode m) const;
 
  private:
   Mode _mode;
@@ -163,12 +163,12 @@ class VoltronicSmartCharger
   SelectableValues _acOptions;
   SelectableValues _totalOptions;
 
-  void _loadOptionsIfNeeded(VoltronicMAX &inv);
+  void _loadOptionsIfNeeded(VoltronicMAX& inv);
   uint8_t _stepDown(uint8_t cur, uint8_t target, bool ac) const;
   uint8_t _stepUp(uint8_t cur, uint8_t target, bool ac) const;
-  void _applyAC(VoltronicMAX &inv, uint8_t amps);
-  void _applyTotal(VoltronicMAX &inv, uint8_t amps);
-  void _setStatus(const char *fmt, ...);
-  void _setStage(const char *s);
+  void _applyAC(VoltronicMAX& inv, uint8_t amps);
+  void _applyTotal(VoltronicMAX& inv, uint8_t amps);
+  void _setStatus(const char* fmt, ...);
+  void _setStage(const char* s);
   uint8_t _pickClosest(bool ac, uint8_t desired) const;
 };

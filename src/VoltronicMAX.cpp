@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  Constructor
 // ═══════════════════════════════════════════════════════════════
-VoltronicMAX::VoltronicMAX(Stream &serial)
+VoltronicMAX::VoltronicMAX(Stream& serial)
   : _transport(serial)
 {
 }
@@ -13,7 +13,7 @@ VoltronicMAX::VoltronicMAX(Stream &serial)
 // ═══════════════════════════════════════════════════════════════
 //  Initialization
 // ═══════════════════════════════════════════════════════════════
-bool VoltronicMAX::begin(const VoltronicConfig &cfg)
+bool VoltronicMAX::begin(const VoltronicConfig& cfg)
 {
   _localCfg = cfg;
   _transport.attachConfig(&_localCfg);
@@ -41,7 +41,7 @@ void VoltronicMAX::setRetries(uint8_t r)
 // ═══════════════════════════════════════════════════════════════
 //  Error name helper
 // ═══════════════════════════════════════════════════════════════
-const char *VoltronicMAX::lastErrorName() const
+const char* VoltronicMAX::lastErrorName() const
 {
   switch (_lastError)
   {
@@ -70,7 +70,7 @@ const char *VoltronicMAX::lastErrorName() const
 // ═══════════════════════════════════════════════════════════════
 //  Frame building
 // ═══════════════════════════════════════════════════════════════
-bool VoltronicMAX::buildFrame(const char *cmd, uint8_t *out, size_t &outLen)
+bool VoltronicMAX::buildFrame(const char* cmd, uint8_t* out, size_t& outLen)
 {
   size_t cmdLen = strlen(cmd);
 
@@ -83,7 +83,7 @@ bool VoltronicMAX::buildFrame(const char *cmd, uint8_t *out, size_t &outLen)
 
   memcpy(out, cmd, cmdLen);
 
-  uint16_t crc = voltronicCRC((const uint8_t *)cmd, cmdLen);
+  uint16_t crc = voltronicCRC((const uint8_t*)cmd, cmdLen);
 
   uint8_t hi, lo;
   voltronicCRCBytes(crc, hi, lo, _localCfg.applyCrcEscape);
@@ -109,7 +109,7 @@ bool VoltronicMAX::checkCRC()
   uint8_t rawHi = (uint8_t)_respBuf[_respLen - 2];
   uint8_t rawLo = (uint8_t)_respBuf[_respLen - 1];
 
-  uint16_t calc = voltronicCRC((const uint8_t *)_respBuf, _respLen - 2);
+  uint16_t calc = voltronicCRC((const uint8_t*)_respBuf, _respLen - 2);
 
   // ─── Try 1: direct ───
   uint16_t recv1 = ((uint16_t)rawHi << 8) | rawLo;
@@ -141,20 +141,20 @@ bool VoltronicMAX::checkCRC()
 // ═══════════════════════════════════════════════════════════════
 //  ACK / NAK detection — ✅ مصحّح: يتجاوز '(' في البداية
 // ═══════════════════════════════════════════════════════════════
-const char *VoltronicMAX::payloadStart() const
+const char* VoltronicMAX::payloadStart() const
 {
   return (_respBuf[0] == '(') ? (_respBuf + 1) : _respBuf;
 }
 
 bool VoltronicMAX::isAck() const
 {
-  const char *p = payloadStart();
+  const char* p = payloadStart();
   return p[0] == 'A' && p[1] == 'C' && p[2] == 'K';
 }
 
 bool VoltronicMAX::isNak() const
 {
-  const char *p = payloadStart();
+  const char* p = payloadStart();
   return p[0] == 'N' && p[1] == 'A' && p[2] == 'K';
 }
 
@@ -178,7 +178,7 @@ void VoltronicMAX::applyPrintableFilter()
 // ═══════════════════════════════════════════════════════════════
 //  Transaction
 // ═══════════════════════════════════════════════════════════════
-bool VoltronicMAX::transact(const char *cmd, bool expectAck)
+bool VoltronicMAX::transact(const char* cmd, bool expectAck)
 {
   _lastError = ERR_NONE;
   _respLen = 0;
@@ -206,7 +206,7 @@ bool VoltronicMAX::transact(const char *cmd, bool expectAck)
       _transport.clear();
     _transport.writeRaw(frame, frameLen);
 
-    _respLen = _transport.readUntilCR((uint8_t *)_respBuf, sizeof(_respBuf) - 1);
+    _respLen = _transport.readUntilCR((uint8_t*)_respBuf, sizeof(_respBuf) - 1);
     if (_respLen == 0)
     {
       _lastError = ERR_TIMEOUT;
@@ -242,12 +242,12 @@ bool VoltronicMAX::transact(const char *cmd, bool expectAck)
   return false;
 }
 
-bool VoltronicMAX::sendRaw(const char *cmd)
+bool VoltronicMAX::sendRaw(const char* cmd)
 {
   return transact(cmd, false);
 }
 
-bool VoltronicMAX::sendRawSetting(const char *cmd)
+bool VoltronicMAX::sendRawSetting(const char* cmd)
 {
   return transact(cmd, true);
 }
@@ -260,46 +260,46 @@ bool VoltronicMAX::sendRawSetting(const char *cmd)
   {                                      \
     if (!transact(cmdConst, false))      \
       return false;                      \
-    const char *s = payloadStart();      \
+    const char* s = payloadStart();      \
     strncpy(out, s, len - 1);            \
     out[len - 1] = '\0';                 \
     _validBits |= (validBit);            \
     return true;                         \
   } while (0)
 
-bool VoltronicMAX::queryProtocolID(char *out, size_t len)
+bool VoltronicMAX::queryProtocolID(char* out, size_t len)
 {
   VC_STR_QUERY(VC_QPI, VVB_QID);
 }
-bool VoltronicMAX::querySerialNumber(char *out, size_t len)
+bool VoltronicMAX::querySerialNumber(char* out, size_t len)
 {
   VC_STR_QUERY(VC_QID, VVB_QID);
 }
-bool VoltronicMAX::querySerialNumberLong(char *out, size_t len)
+bool VoltronicMAX::querySerialNumberLong(char* out, size_t len)
 {
   VC_STR_QUERY(VC_QSID, VVB_QSID);
 }
-bool VoltronicMAX::queryFirmware(char *out, size_t len)
+bool VoltronicMAX::queryFirmware(char* out, size_t len)
 {
   VC_STR_QUERY(VC_QVFW, VVB_QVFW);
 }
-bool VoltronicMAX::queryFirmware2(char *out, size_t len)
+bool VoltronicMAX::queryFirmware2(char* out, size_t len)
 {
   VC_STR_QUERY(VC_QVFW3, VVB_QVFW3);
 }
-bool VoltronicMAX::queryBluetoothVersion(char *out, size_t len)
+bool VoltronicMAX::queryBluetoothVersion(char* out, size_t len)
 {
   VC_STR_QUERY(VC_VERFW, VVB_VERFW);
 }
-bool VoltronicMAX::queryModelName(char *out, size_t len)
+bool VoltronicMAX::queryModelName(char* out, size_t len)
 {
   VC_STR_QUERY(VC_QMN, VVB_QMN);
 }
-bool VoltronicMAX::queryGeneralModelName(char *out, size_t len)
+bool VoltronicMAX::queryGeneralModelName(char* out, size_t len)
 {
   VC_STR_QUERY(VC_QGMN, VVB_QGMN);
 }
-bool VoltronicMAX::queryTime(char *out, size_t len)
+bool VoltronicMAX::queryTime(char* out, size_t len)
 {
   VC_STR_QUERY(VC_QT, VVB_QT);
 }
@@ -457,7 +457,7 @@ bool VoltronicMAX::queryBatteryControl()
   return true;
 }
 
-bool VoltronicMAX::queryBoot(bool &hasBootstrap)
+bool VoltronicMAX::queryBoot(bool& hasBootstrap)
 {
   if (!transact(VC_QBOOT, false))
     return false;
@@ -690,7 +690,7 @@ bool VoltronicMAX::setMaxCvChargingTime(uint16_t min)
   snprintf(cmd, sizeof(cmd), "%s%03u", VC_PCVT, min);
   return transact(cmd, true);
 }
-bool VoltronicMAX::setDateTime(const char *s)
+bool VoltronicMAX::setDateTime(const char* s)
 {
   char cmd[32];
   snprintf(cmd, sizeof(cmd), "%s%s", VC_DAT, s);
@@ -706,7 +706,7 @@ bool VoltronicMAX::setBatteryControl(uint8_t a, uint8_t b, uint8_t c)
 // ═══════════════════════════════════════════════════════════════
 //  Non-blocking polling
 // ═══════════════════════════════════════════════════════════════
-void VoltronicMAX::startPolling(const VoltronicPollSchedule &schedule)
+void VoltronicMAX::startPolling(const VoltronicPollSchedule& schedule)
 {
   _pollSchedule = schedule;
   _pollEnabled = true;
@@ -842,10 +842,10 @@ bool VoltronicMAX::poll()
 // ─── جدول الأوامر (PROGMEM) ───
 struct VoltWebCmdEntry
 {
-  const char *cmd;
-  const char *label;
+  const char* cmd;
+  const char* label;
   uint8_t type;
-  const char *defParam;
+  const char* defParam;
 };
 
 static const VoltWebCmdEntry VWEB_CMDS[] PROGMEM = {
@@ -1526,7 +1526,7 @@ static const char VHTML_P2[] PROGMEM =
 // ═══════════════════════════════════════════════════════════════
 //  JSON escape
 // ═══════════════════════════════════════════════════════════════
-static size_t voltJsonEscape(char *dst, size_t dstLen, const char *src)
+static size_t voltJsonEscape(char* dst, size_t dstLen, const char* src)
 {
   size_t w = 0;
   if (!src)
@@ -1570,7 +1570,7 @@ static size_t voltJsonEscape(char *dst, size_t dstLen, const char *src)
 // ═══════════════════════════════════════════════════════════════
 //  Config
 // ═══════════════════════════════════════════════════════════════
-void VoltronicMAX::attachWebServer(VoltWebServer *server)
+void VoltronicMAX::attachWebServer(VoltWebServer* server)
 {
   if (!server)
     return;
@@ -1583,7 +1583,7 @@ void VoltronicMAX::attachWebServer(VoltWebServer *server)
   Serial.println(F("[Voltronic] Web registered (no auth)"));
 }
 
-void VoltronicMAX::attachWebServer(VoltWebServer *server, const char *user, const char *pass)
+void VoltronicMAX::attachWebServer(VoltWebServer* server, const char* user, const char* pass)
 {
   if (!user || !pass || !*user || !*pass)
   {
@@ -1601,7 +1601,7 @@ void VoltronicMAX::attachWebServer(VoltWebServer *server, const char *user, cons
   Serial.println(F("[Voltronic] Web registered (auth ON)"));
 }
 
-void VoltronicMAX::setWebPrefix(const char *prefix)
+void VoltronicMAX::setWebPrefix(const char* prefix)
 {
   if (!prefix)
   {
@@ -1690,7 +1690,7 @@ void VoltronicMAX::_webHandleExecute()
 
   bool ok = (type == 1) ? sendRawSetting(full.c_str()) : sendRaw(full.c_str());
 
-  const char *raw = lastResponse();
+  const char* raw = lastResponse();
   static char esc[512];
   voltJsonEscape(esc, sizeof(esc), raw ? raw : "");
 
