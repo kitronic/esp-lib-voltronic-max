@@ -9,13 +9,13 @@ class VoltronicPowerMode
 public:
   enum Mode : uint8_t
   {
-    UNKNOWN = 0,
-    NORMAL,
-    POWER_SAVING,
-    EMERGENCY_MAX,
-    SOLAR_SURPLUS,
-    GRID_SURPLUS,
-    COMBINED_SURPLUS,
+    PM_UNKNOWN = 0,
+    PM_NORMAL = 1,
+    PM_POWER_SAVING = 2,
+    PM_EMERGENCY_MAX = 3,
+    PM_SOLAR_SURPLUS = 4,
+    PM_GRID_SURPLUS = 5,
+    PM_COMBINED_SURPLUS = 6,
   };
 
   VoltronicPowerMode();
@@ -52,7 +52,7 @@ public:
   const char *modeNameAr() const;
 
 private:
-  Mode _mode = NORMAL;
+  Mode _mode = PM_NORMAL;
   bool _locked = false;
   unsigned long _dischargeStart = 0;
 

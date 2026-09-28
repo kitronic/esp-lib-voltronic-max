@@ -22,8 +22,8 @@
 
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <SoftwareSerial.h>
 #include "VoltronicMAX.h"
-
 // ═══════════════════════════════════════════════════════════════
 //  إعدادات المستخدم
 // ═══════════════════════════════════════════════════════════════
@@ -76,7 +76,8 @@ const char *WEB_PREFIX = "/inv";
 //  Globals
 // ═══════════════════════════════════════════════════════════════
 ESP8266WebServer web(80);
-VoltronicMAX inverter(&Serial1);
+SoftwareSerial   invSerial(INV_RX_PIN, INV_TX_PIN, false);  // RX, TX, invert
+VoltronicMAX     inverter(invSerial);
 
 // ═══════════════════════════════════════════════════════════════
 //  Setup
@@ -92,8 +93,8 @@ void setup()
   Serial.println(F("╚════════════════════════════════════╝"));
 
   // ─── UART للإنفرتر ───
-  Serial1.begin(INV_BAUD, SERIAL_8N1, INV_RX_PIN, INV_TX_PIN);
-  inverter.begin(INV_BAUD);
+invSerial.begin(INV_BAUD);
+inverter.begin(INV_BAUD);
   Serial.printf_P(PSTR("[Boot] UART ready: %u 8N1 (RX=D%d TX=D%d)\n"),
                   INV_BAUD, INV_RX_PIN, INV_TX_PIN);
 

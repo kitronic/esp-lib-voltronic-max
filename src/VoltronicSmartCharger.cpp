@@ -5,7 +5,7 @@
 #include <stdio.h>
 // ═══════════════════════════════════════════════════════════════
 VoltronicSmartCharger::VoltronicSmartCharger()
-    : _mode(STANDARD), _targetAC(40), _targetTotal(80), _floatAC(2), _floatTotal(10), _tempProtectC(70), _currentAC(0), _currentTotal(0), _changes(0), _floatEntries(0), _tempProtects(0), _lastChange(0), _inTempProtect(false), _lastWasFloat(false), _optionsLoaded(false)
+    : _mode(MODE_STD), _targetAC(40), _targetTotal(80), _floatAC(2), _floatTotal(10), _tempProtectC(70), _currentAC(0), _currentTotal(0), _changes(0), _floatEntries(0), _tempProtects(0), _lastChange(0), _inTempProtect(false), _lastWasFloat(false), _optionsLoaded(false)
 {
     _stage[0] = 'I';
     _stage[1] = 'd';
@@ -195,7 +195,7 @@ void VoltronicSmartCharger::update(VoltronicMAX &inv, const VoltronicBattery &ba
     }
 
     // Stage
-    if (_mode == DISABLED)
+    if (_mode == MODE_OFF)
         _setStage(inv.lang.tr(VoltronicLang::SC_STAGE_OFF));
     else if (temp >= _tempProtectC)
         _setStage(inv.lang.tr(VoltronicLang::SC_STAGE_TEMP));
@@ -207,7 +207,7 @@ void VoltronicSmartCharger::update(VoltronicMAX &inv, const VoltronicBattery &ba
         _setStage(inv.lang.tr(VoltronicLang::SC_STAGE_CHARGE));
 
     // Disabled
-    if (_mode == DISABLED)
+    if (_mode == MODE_OFF)
     {
         _setStatus(inv.lang.tr(VoltronicLang::SC_STATUS_OFF));
         return;
@@ -250,7 +250,7 @@ void VoltronicSmartCharger::update(VoltronicMAX &inv, const VoltronicBattery &ba
     }
 
     // FAST mode
-    if (_mode == FAST)
+    if (_mode == MODE_FAST)
     {
         uint8_t targetAC = isFloat ? _floatAC : _targetAC;
         uint8_t targetT = isFloat ? _floatTotal : _targetTotal;
@@ -290,7 +290,7 @@ void VoltronicSmartCharger::update(VoltronicMAX &inv, const VoltronicBattery &ba
     }
 
     // STANDARD mode
-    if (_mode == STANDARD)
+    if (_mode == MODE_STD)
     {
         uint8_t targetAC = _targetAC;
         uint8_t targetT = _targetTotal;
@@ -348,11 +348,11 @@ const char *VoltronicSmartCharger::modeToString(Mode m) const
 {
     switch (m)
     {
-    case DISABLED:
+    case MODE_OFF:
         return "Disabled";
-    case STANDARD:
+    case MODE_STD:
         return "Standard";
-    case FAST:
+    case MODE_FAST:
         return "Fast";
     default:
         return "?";

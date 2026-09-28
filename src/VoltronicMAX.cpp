@@ -1629,7 +1629,7 @@ void VoltronicMAX::_webHandleBattery()
   _webServer->send(200, "application/json", buf);
 
   VLOG(("[Web] Battery saved: %.0fAh, type=%s\n"),
-                  battery.capacityAh(), battery.typeName());
+       battery.capacityAh(), battery.typeName());
 }
 
 // ─── POST /api/smartcharger ───
@@ -1656,9 +1656,9 @@ void VoltronicMAX::_webHandleSmartCharger()
   _webServer->send_P(200, PSTR("application/json"), PSTR("{\"ok\":true}"));
 
   VLOG(("[Web] SmartCharger saved: mode=%u AC=%u T=%u\n"),
-                  (unsigned)smartCharger.mode(),
-                  smartCharger.targetAC(),
-                  smartCharger.targetTotal());
+       (unsigned)smartCharger.mode(),
+       smartCharger.targetAC(),
+       smartCharger.targetTotal());
 }
 
 // ─── GET /api/status ───

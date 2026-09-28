@@ -7,15 +7,17 @@ class VoltronicMAX;
 
 // ═══════════════════════════════════════════════════════════════
 //  VoltronicSmartCharger — شحن ذكي متعدد الأنماط
+//  ⚠️ ملاحظة: أسماء enum بادئة MODE_ لتجنب تعارض
+//     مع ESP32 hal macro DISABLED
 // ═══════════════════════════════════════════════════════════════
 class VoltronicSmartCharger
 {
 public:
     enum Mode : uint8_t
     {
-        DISABLED = 0,
-        STANDARD = 1,
-        FAST = 2,
+        MODE_OFF = 0,  // معطّل
+        MODE_STD = 1,  // قياسي (تخفيض تدريجي)
+        MODE_FAST = 2, // سريع (Float فقط)
     };
 
     VoltronicSmartCharger();
@@ -33,7 +35,7 @@ public:
 
     // ─── القراءات ───
     Mode mode() const { return _mode; }
-    bool enabled() const { return _mode != DISABLED; }
+    bool enabled() const { return _mode != MODE_OFF; }
     uint8_t targetAC() const { return _targetAC; }
     uint8_t targetTotal() const { return _targetTotal; }
     uint8_t floatAC() const { return _floatAC; }
@@ -78,6 +80,7 @@ private:
     bool _inTempProtect;
     bool _lastWasFloat;
     bool _optionsLoaded;
+    bool _currentsInitialized;
 
     SelectableValues _acOptions;
     SelectableValues _totalOptions;

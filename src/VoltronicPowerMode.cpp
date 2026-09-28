@@ -47,21 +47,21 @@ void VoltronicPowerMode::update(VoltronicMAX &inv, const VoltronicBattery &bat)
         //   _locked AND SOC < _socRecover → نبقى مقفولين
         if (soc < _socEmergency || (_locked && soc < _socRecover))
         {
-            _mode = EMERGENCY_MAX;
+            _mode = PM_EMERGENCY_MAX;
             _locked = true;
         }
         // POWER_SAVING لو:
         //   SOC < _socPowerSaving
         else if (soc < _socPowerSaving)
         {
-            _mode = POWER_SAVING;
+            _mode = PM_POWER_SAVING;
             _locked = false;
         }
         // NORMAL لو:
         //   SOC > _socPowerSaving
         else
         {
-            _mode = NORMAL;
+            _mode = PM_NORMAL;
             _locked = false;
         }
         return;
@@ -74,20 +74,20 @@ void VoltronicPowerMode::update(VoltronicMAX &inv, const VoltronicBattery &bat)
     bool full = readyFull && !discharging;
 
     // منع القفز
-    if (_mode == SOLAR_SURPLUS || _mode == GRID_SURPLUS || _mode == COMBINED_SURPLUS)
+    if (_mode == PM_SOLAR_SURPLUS || _mode == PM_GRID_SURPLUS || _mode == PM_COMBINED_SURPLUS)
     {
         if (soc >= (_socSurplus - 3.0f) && !sustained)
             full = true;
     }
 
     if (full && gridOk && hasSolar)
-        _mode = COMBINED_SURPLUS;
+        _mode = PM_COMBINED_SURPLUS;
     else if (full && hasSolar)
-        _mode = SOLAR_SURPLUS;
+        _mode = PM_SOLAR_SURPLUS;
     else if (full && gridOk)
-        _mode = GRID_SURPLUS;
+        _mode = PM_GRID_SURPLUS;
     else
-        _mode = NORMAL;
+        _mode = PM_NORMAL;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -97,17 +97,17 @@ const char *VoltronicPowerMode::modeNameAr() const
 {
     switch (_mode)
     {
-    case NORMAL:
+    case PM_NORMAL:
         return "عادي";
-    case POWER_SAVING:
+    case PM_POWER_SAVING:
         return "توفير الطاقة";
-    case EMERGENCY_MAX:
+    case PM_EMERGENCY_MAX:
         return "طوارئ";
-    case SOLAR_SURPLUS:
+    case PM_SOLAR_SURPLUS:
         return "فائض شمسي";
-    case GRID_SURPLUS:
+    case PM_GRID_SURPLUS:
         return "فائض شبكة";
-    case COMBINED_SURPLUS:
+    case PM_COMBINED_SURPLUS:
         return "فائض مشترك";
     default:
         return "غير معروف";
@@ -118,17 +118,17 @@ const char *VoltronicPowerMode::modeNameEn() const
 {
     switch (_mode)
     {
-    case NORMAL:
+    case PM_NORMAL:
         return "Normal";
-    case POWER_SAVING:
+    case PM_POWER_SAVING:
         return "Power Saving";
-    case EMERGENCY_MAX:
+    case PM_EMERGENCY_MAX:
         return "Emergency";
-    case SOLAR_SURPLUS:
+    case PM_SOLAR_SURPLUS:
         return "Solar Surplus";
-    case GRID_SURPLUS:
+    case PM_GRID_SURPLUS:
         return "Grid Surplus";
-    case COMBINED_SURPLUS:
+    case PM_COMBINED_SURPLUS:
         return "Combined Surplus";
     default:
         return "Unknown";
