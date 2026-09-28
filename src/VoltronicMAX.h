@@ -12,16 +12,20 @@
 #include "VoltronicPowerMode.h"
 #include "VoltronicStorage.h"
 #include "VoltronicLang.h"
+// ═══════════════════════════════════════════════════════════════
+//  Web server type (opt-in via VOLTRONIC_USE_WEB)
+//  ⚠️ نستخدم ARDUINO_ARCH_* (المعيار الرسمي)
+// ═══════════════════════════════════════════════════════════════
 #if defined(VOLTRONIC_USE_WEB)
-#if defined(ESP8266)
-#include <ESP8266WebServer.h>
-#define VoltWebServer ESP8266WebServer
-#elif defined(ESP32)
-#include <WebServer.h>
-#define VoltWebServer WebServer
-#else
-#error "VOLTRONIC_USE_WEB requires ESP8266 or ESP32"
-#endif
+  #if defined(ARDUINO_ARCH_ESP8266)
+    #include <ESP8266WebServer.h>
+    #define VoltWebServer ESP8266WebServer
+  #elif defined(ARDUINO_ARCH_ESP32)
+    #include <WebServer.h>
+    #define VoltWebServer WebServer
+  #else
+    #error "VOLTRONIC_USE_WEB requires ESP8266 or ESP32"
+  #endif
 #endif
 
 class VoltronicMAX
