@@ -1,9 +1,10 @@
 # VoltronicMAX Arduino Library
 
-**Author:** Kitronic
-**Contact:** info@kitronic.tech
-**Repository:** https://github.com/kitronic/esp-lib-voltronic-max.git
-**License:** MIT
+**Author:** Kitronic  
+**Contact:** info@kitronic.tech  
+**Repository:** https://github.com/kitronic/esp-lib-voltronic-max.git  
+**License:** MIT  
+**Version:** 1.3.0
 
 مكتبة Arduino كاملة للتواصل مع إنفرترات **Voltronic Power Axpert MAX** (موديلات HV7.2kW و LV5kW) عبر بروتوكول **PI30 ASCII**.
 
@@ -13,6 +14,7 @@
 
 ## ✨ المميزات
 
+### الأساسيات
 - ✅ **تغطية كاملة** لكل أوامر الملف الرسمي (25 inquiry + 30 setting)
 - ✅ **Zero dynamic allocation** — بدون `malloc` / `new` / `String`
 - ✅ **ذاكرة منخفضة** — أقل من 1 KB RAM لكل البيانات
@@ -21,7 +23,18 @@
 - ✅ **دعم SoftwareSerial و HardwareSerial**
 - ✅ **ESP32 / ESP8266 / AVR / SAMD / STM32**
 - ✅ **قابل للتخصيص** — baud، timeout، retries، behavior flags
-- ✅ **18 مثال** جاهز
+
+### إضافات v1.3.0 — حساب البطارية والتحكم الذكي
+- ✅ **`VoltronicBattery`** — SOC/SOH/Energy/C-Rate من الجهد (منحنيات LiFePO4/AGM)
+- ✅ **`VoltronicSmartCharger`** — شحن ذكي تلقائي (MCHGC/MUCHGC)
+- ✅ **`VoltronicPowerMode`** — وضع الطاقة (عادي/طوارئ/فائض) بعتبات قابلة للتخصيص
+- ✅ **`VoltronicStorage`** — حفظ دائم في EEPROM مع CRC16
+- ✅ **`VoltronicLang`** — عربي/إنجليزي تلقائي (50+ ترجمة)
+- ✅ **Device Status Decoder** — فك bits QPIGS.deviceStatus
+- ✅ **Web Console** — واجهة تحكم كاملة (ESP8266/ESP32)
+
+### الاختبارات والأمثلة
+- ✅ **20 مثال** جاهز
 - ✅ **Unit tests** لـ CRC والـ parsers
 
 ---
@@ -29,17 +42,20 @@
 ## 📥 التثبيت
 
 ### Arduino Library Manager
+
 1. `Sketch → Include Library → Manage Libraries`
 2. ابحث عن **VoltronicMAX**
 3. Install
 
 ### يدوي
+
 ```bash
 cd ~/Arduino/libraries
 git clone https://github.com/kitronic/esp-lib-voltronic-max.git
 ```
 
 ### PlatformIO
+
 ```ini
 lib_deps =
     https://github.com/kitronic/esp-lib-voltronic-max.git
@@ -58,7 +74,6 @@ VoltronicMAX inverter(invSerial);
 
 void setup() {
   Serial.begin(115200);
-invSerial.begin(2400); 
   invSerial.begin(2400);                // ← مهم: هيّئ Serial بنفسك
   inverter.begin(2400);                 // ← المكتبة تخزن الإعدادات فقط
 }
@@ -73,7 +88,7 @@ void loop() {
 }
 ```
 
-> ⚠️ **مهم:** المكتبة لا تهيّئ `Serial` تلقائياً. لازم تنادي `invSerial.begin(2400)` 
+> ⚠️ **مهم:** المكتبة لا تهيّئ `Serial` تلقائياً. لازم تنادي `invSerial.begin(2400)`  
 > (أو `Serial2.begin(2400, SERIAL_8N1, rx, tx)` للـ ESP32) قبل `inverter.begin()`.
 
 ---
@@ -86,7 +101,7 @@ cfg.baud                     = 2400;    // معدل الباود
 cfg.responseTimeoutMs        = 800;     // مهلة الاستجابة
 cfg.retries                  = 2;       // عدد محاولات إعادة الإرسال
 cfg.applyCrcEscape           = true;    // تفعيل escape للـ CRC
-cfg.filterPrintable          = true;    // تجاهل الأحرف غير المطبوعة
+cfg.filterPrintable          = true;    // استبدال الأحرف غير المطبوعة
 cfg.yieldDuringRead          = true;    // yield() أثناء القراءة (ESP8266)
 cfg.clearBufferBeforeSend    = true;    // تنظيف البافر قبل الإرسال
 
@@ -98,7 +113,7 @@ inverter.begin(cfg);
 | التعريف | الافتراضي | الوصف |
 |---|---|---|
 | `VOLTRONIC_RESP_BUF_SIZE` | 160 | حجم buffer الرد |
-| `VOLTRONIC_CMD_BUF_SIZE` | 16 | حجم buffer الأمر |
+| `VOLTRONIC_CMD_BUF_SIZE` | 32 | حجم buffer الأمر |
 | `VOLTRONIC_MAX_RETRIES` | 2 | عدد محاولات إعادة الإرسال |
 | `VOLTRONIC_DEFAULT_BAUD` | 2400 | الباود الافتراضي |
 | `VOLTRONIC_DEFAULT_TIMEOUT_MS` | 800 | مهلة الاستجابة |
@@ -177,6 +192,140 @@ inverter.begin(cfg);
 
 ---
 
+## 🌐 Web Console (جديد في v1.2.0)
+
+واجهة تحكم كاملة عبر المتصفح لـ **ESP8266** و **ESP32**. تعرض كل الأوامر كأزرار وتقبل أوامر خام مباشرة.
+
+### التمثيل البصري
+
+```
+┌─────────────────────────────────────┐
+│  Voltronic MAX                      │
+│                                     │
+│  ┌─ Commands ─────────────────────┐ │
+│  │ Protocol ID      QPI    [Send] │ │
+│  │ General status   QPIGS  [Send] │ │
+│  │ Battery CV       PBCV [56.4]   │ │
+│  │ ...                            │ │
+│  └────────────────────────────────┘ │
+│                                     │
+│  ┌─ Raw command ──────────────────┐ │
+│  │ [QPIGS___________]  [Send]     │ │
+│  └────────────────────────────────┘ │
+│                                     │
+│  ┌─ Output ───────────────────────┐ │
+│  │ [14:32:05] > QPIGS             │ │
+│  │ (230.1 50.0 230.1 50.0 ...     │ │
+│  └────────────────────────────────┘ │
+└─────────────────────────────────────┘
+```
+
+### التفعيل (ESP8266)
+
+```cpp
+#define VOLTRONIC_USE_WEB       // ← قبل include
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+#include "VoltronicMAX.h"
+
+ESP8266WebServer web(80);
+VoltronicMAX     inverter(&Serial1);
+
+void setup() {
+  Serial.begin(115200);
+  Serial1.begin(2400, SERIAL_8N1, 4, 5);   // RX=D2, TX=D1
+  inverter.begin(2400);
+
+  WiFi.begin("SSID", "PASS");
+  while (WiFi.status() != WL_CONNECTED) delay(200);
+
+  inverter.attachWebServer(&web, "admin", "changeme");
+  inverter.setWebPrefix("/inv");           // → http://<ip>/inv/
+  web.begin();
+}
+
+void loop() {
+  web.handleClient();
+}
+```
+
+### التفعيل (ESP32)
+
+```cpp
+#define VOLTRONIC_USE_WEB
+#include <WiFi.h>
+#include <WebServer.h>          // ← WebServer بدل ESP8266WebServer
+#include "VoltronicMAX.h"
+
+WebServer    web(80);
+VoltronicMAX inverter(&Serial2);
+
+void setup() {
+  Serial.begin(115200);
+  Serial2.begin(2400, SERIAL_8N1, 16, 17);   // RX, TX
+  inverter.begin(2400);
+
+  WiFi.begin("SSID", "PASS");
+  while (WiFi.status() != WL_CONNECTED) delay(200);
+
+  inverter.attachWebServer(&web);   // بدون auth
+  inverter.setWebPrefix("");
+  web.begin();
+}
+
+void loop() {
+  web.handleClient();
+}
+```
+
+### API الـ REST
+
+| Method | Endpoint | الوصف |
+|---|---|---|
+| `GET` | `{prefix}/` | صفحة HTML |
+| `GET` | `{prefix}/api/commands` | JSON قائمة الأوامر |
+| `POST` | `{prefix}/api/cmd` | تنفيذ أمر |
+
+**مثال POST:**
+
+```bash
+curl -X POST http://192.168.1.100/inv/api/cmd \
+     -d "cmd=QPIGS&param=&type=0"
+```
+
+**الرد:**
+
+```json
+{
+  "ok": true,
+  "cmd": "QPIGS",
+  "response": "(230.1 50.0 230.1 50.0 ...",
+  "error": ""
+}
+```
+
+### استهلاك الذاكرة
+
+| المكوّن | الحجم |
+|---|---|
+| HTML/CSS/JS (PROGMEM) | ~3 KB Flash |
+| جدول الأوامر (PROGMEM) | ~700 B Flash |
+| Static buffers (RAM) | ~5.4 KB |
+| **المجموع** | **~3.7 KB Flash + 5.4 KB RAM** |
+
+على ESP8266 (80 KB heap) → **6.75% فقط**.
+
+### ملاحظات أمنية
+
+- ⚠️ **افتراضياً بدون auth** — للاستخدام المحلي فقط
+- ✅ مع auth: Basic Auth بسيط (HTTPS مو مفعّل افتراضياً)
+- ✅ فلترة صارمة للأوامر: `A-Z 0-9 :` فقط
+- ✅ فلترة للمعاملات: `0-9 . - ,` فقط
+- ✅ حد أقصى للطول: 20 حرف للأمر، 32 للكامل
+- ❌ **لا تفتح المنفذ 80 على الإنترنت بدون reverse proxy + HTTPS**
+
+---
+
 ## 📊 هيكل البيانات
 
 ### `QPIGSData` — حالة الإنفرتر
@@ -216,8 +365,8 @@ struct QPIGSData {
 ```
 
 - `QPIRIData` — معلومات التقييم
-- `QFLAGData` — الأعلام
-- `WarningDecoded` — التحذيرات
+- `QFLAGData` — الأعلام (مع `raw` نصي)
+- `WarningDecoded` — التحذيرات (36-bit، `uint64_t`)
 - `ParallelInfo` — معلومات التوازي
 - `BatteryEqualizationInfo` — معادلة البطارية
 - `LedInfo` — حالة LED
@@ -243,8 +392,9 @@ struct QPIGSData {
 | `BatteryControlStatus` | 3 |
 | `SelectableValues` × 2 | ~34 |
 | `TimeOrderInfo` × 2 | ~52 |
-| Buffers | ~180 |
-| **المجموع** | **~500 بايت** |
+| Buffers (`_respBuf` + `_cmdBuf`) | ~192 |
+| **المجموع الأساسي** | **~500 بايت** |
+| + Web Console (اختياري) | +56 بايت |
 
 على ESP8266/ESP32 يترك مساحة كبيرة للتطبيق.
 
@@ -262,11 +412,13 @@ struct QPIGSData {
 ### تشغيل الاختبارات
 
 **مع PlatformIO**
+
 ```bash
 pio test -e native
 ```
 
 **يدويًا**
+
 ```bash
 cd test/test_native
 g++ -std=c++11 -I../../src test_native.cpp ../../src/VoltronicParser.cpp -o test
@@ -277,7 +429,7 @@ g++ -std=c++11 -I../../src test_native.cpp ../../src/VoltronicParser.cpp -o test
 
 ---
 
-## 📁 الأمثلة
+## 📁 الأمثلة (20 مثال)
 
 | # | المثال | الوصف |
 |---|---|---|
@@ -299,37 +451,58 @@ g++ -std=c++11 -I../../src test_native.cpp ../../src/VoltronicParser.cpp -o test
 | 16 | `AllSettings` | كل أوامر الضبط |
 | 17 | `NonBlocking` | state machine |
 | 18 | `AsyncPoller` | جدولة دورية |
+| 19 | `WebConsole` | واجهة ويب (ESP8266) |
+| 20 | `WebConsoleESP32` | واجهة ويب (ESP32) |
 
 ---
 
 ## 🔧 استكشاف الأخطاء
 
-**الرد لا يبدأ بـ `(` أو `ACK` / `NAK`**
+### الرد لا يبدأ بـ `(` أو `ACK` / `NAK`
+
 - تحقق من إعدادات المنفذ: 2400 8N1
 - تحقق من توصيلات RX/TX
 - جرب تعكس RX و TX
 
-**`lastError() == ERR_CRC`**
+### `lastError() == ERR_CRC`
+
 - تحقق من الباود
 - جرب `cfg.applyCrcEscape = false`
 - تحقق من عدم وجود noise على الخط
 
-**`lastError() == ERR_TIMEOUT`**
+### `lastError() == ERR_TIMEOUT`
+
 - زد `cfg.responseTimeoutMs`
 - تحقق من أن الإنفرتر مستجيب (استعمل `QPI` أولاً)
 
-**`lastError() == ERR_NAK`**
+### `lastError() == ERR_NAK`
+
 - الأمر غير مدعوم في هذه النسخة من الفيرموير
 
-**ESP8266 — رسائل Exception**
+### ESP8266 — رسائل Exception
+
 - تأكد من `cfg.yieldDuringRead = true`
 - قلل `responseTimeoutMs`
 
-**ESP32 — Serial2 pins**
+### ESP32 — Serial2 pins
+
 ```cpp
 Serial2.begin(2400, SERIAL_8N1, 16, 17);
 inverter.begin(2400);
 ```
+
+### Web Console لا تُحمّل
+
+- تأكد `#define VOLTRONIC_USE_WEB` **قبل** `#include`
+- تحقق من Serial Monitor: يجب أن ترى `[Voltronic] Web routes at "/inv"`
+- افتح `http://<ip>/inv/` (مع `/` في النهاية)
+- لو auth مفعّل: اسم المستخدم/كلمة المرور المحددة
+
+### Web Console: `Load error`
+
+- افتح Console في المتصفح (F12)
+- تحقق من `api/commands` endpoint مباشرة في المتصفح
+- تأكد من `<base href>` — مطلوب للـ fetch النسبي
 
 ---
 
@@ -339,38 +512,15 @@ MIT © Kitronic
 
 ---
 
-# 📦 الخطوة 4: الأمثلة (كل الأوامر)
+## 🔗 مراجع
 
-## `examples/01_BasicRead/01_BasicRead.ino`
+- [PI30 Protocol Reference (Voltronic)](docs/PROTOCOL.md)
+- [Commands Reference](docs/COMMANDS.md)
+- [CRC Details](docs/CRC.md)
+- [Memory Analysis](docs/MEMORY.md)
 
-```cpp
-#include <VoltronicMAX.h>
-#include <SoftwareSerial.h>
+---
 
-SoftwareSerial invSerial(D1, D2);  // ESP8266
-// ESP32: use Serial2 with pins
-VoltronicMAX inverter(invSerial);
+## 📝 Changelog
 
-void setup() {
-  Serial.begin(115200);
-  invSerial.begin(2400); 
-  Serial.println(F("--- BasicRead ---"));
-  inverter.begin(2400);
-}
-
-void loop() {
-  if (inverter.queryGeneralStatus()) {
-    const QPIGSData& d = inverter.qpigs();
-    Serial.printf("Grid: %.1fV %.1fHz\n", d.gridVoltage(), d.gridFrequency());
-    Serial.printf("Out:  %.1fV %.1fHz | Load %u%%\n",
-                  d.acOutputVoltage(), d.acOutputFrequency(), d.loadPercent);
-    Serial.printf("Batt: %.2fV %uA %u%% | Temp %uC\n",
-                  d.batteryVoltage(), d.batteryChargingCurrent(),
-                  d.batteryCapacity, d.inverterTemperature);
-    Serial.printf("PV1:  %.1fV %.1fA %uW\n",
-                  d.pv1InputVoltage(), d.pv1InputCurrent(), d.pv1ChargingPower);
-  } else {
-    Serial.printf("Failed, err=%u\n", inverter.lastError());
-  }
-  delay(3000);
-}
+راجع [CHANGELOG.md](CHANGELOG.md) لكل الإصدارات.

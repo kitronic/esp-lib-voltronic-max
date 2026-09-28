@@ -6,42 +6,58 @@
 #include "VoltronicTypes.h"
 #include "VoltronicParser.h"
 #include "VoltronicTransport.h"
+#include "VoltronicBattery.h"
+#include "VoltronicBattery.h"
+#include "VoltronicSmartCharger.h"
+#include "VoltronicPowerMode.h"
+#include "VoltronicStorage.h"
+#include "VoltronicLang.h"
+#if defined(VOLTRONIC_USE_WEB)
+#if defined(ESP8266)
+#include <ESP8266WebServer.h>
+#define VoltWebServer ESP8266WebServer
+#elif defined(ESP32)
+#include <WebServer.h>
+#define VoltWebServer WebServer
+#else
+#error "VOLTRONIC_USE_WEB requires ESP8266 or ESP32"
+#endif
+#endif
 
 class VoltronicMAX
 {
 public:
-  size_t lastResponseLen() const { return _respLen; }
+  VoltronicBattery battery; // ← عضو عام
+  VoltronicSmartCharger smartCharger;
+  VoltronicPowerMode powerMode;
+  VoltronicStorage storage;
+  VoltronicLang lang;
   enum Error : uint8_t
   {
     ERR_NONE = 0,
-    ERR_TIMEOUT = 1,
-    ERR_SHORT = 2,
-    ERR_CRC = 3,
-    ERR_NAK = 4,
-    ERR_BAD_RESP = 5,
-    ERR_PARSE = 6,
-    ERR_BUSY = 7,
-    ERR_TOO_LONG = 8,
+    ERR_TIMEOUT,
+    ERR_SHORT,
+    ERR_CRC,
+    ERR_NAK,
+    ERR_BAD_RESP,
+    ERR_PARSE,
+    ERR_BUSY,
+    ERR_TOO_LONG,
   };
 
   explicit VoltronicMAX(Stream &serial);
 
-  // ═══════════════════════════════════════════════════════════
-  //  Init
-  // ═══════════════════════════════════════════════════════════
+  // ─── Init ───
   bool begin(const VoltronicConfig &cfg);
   bool begin(uint32_t baud = VOLTRONIC_DEFAULT_BAUD);
   void setTimeout(uint16_t ms);
   void setRetries(uint8_t r);
 
-  // ═══════════════════════════════════════════════════════════
-  //  Raw
-  // ═══════════════════════════════════════════════════════════
+  // ─── Raw ───
   bool sendRaw(const char *cmd);
+  bool sendRawSetting(const char *cmd);
 
-  // ═══════════════════════════════════════════════════════════
-  //  INQUIRY COMMANDS (25)
-  // ═══════════════════════════════════════════════════════════
+  // ─── Inquiry (25) ───
   bool queryProtocolID(char *out, size_t len);
   bool querySerialNumber(char *out, size_t len);
   bool querySerialNumberLong(char *out, size_t len);
@@ -68,9 +84,7 @@ public:
   bool queryOutputPriorityTimeOrder();
   bool queryChargerPriorityTimeOrder();
 
-  // ═══════════════════════════════════════════════════════════
-  //  SETTING COMMANDS (30)
-  // ═══════════════════════════════════════════════════════════
+  // ─── Settings (30) ───
   bool setFlag(char flag);
   bool clearFlag(char flag);
   bool resetDefaults();
@@ -102,9 +116,7 @@ public:
   bool setDateTime(const char *yymmddhhmmss);
   bool setBatteryControl(uint8_t a, uint8_t b, uint8_t c);
 
-  // ═══════════════════════════════════════════════════════════
-  //  DATA ACCESS
-  // ═══════════════════════════════════════════════════════════
+  // ─── Data access ───
   const QPIGSData &qpigs() const { return _qpigs; }
   const QPIGS2Data &qpigs2() const { return _qpigs2; }
   const QPIRIData &qpiri() const { return _qpiri; }
@@ -130,17 +142,11 @@ public:
   uint32_t validBits() const { return _validBits; }
   bool hasBoot() const { return _hasBoot; }
 
-  // ═══════════════════════════════════════════════════════════
-  //  NON-BLOCKING POLLING
-  // ═══════════════════════════════════════════════════════════
+  // ─── Polling ───
   void startPolling(const VoltronicPollSchedule &schedule);
   void startPolling();
   void stopPolling();
-
-  // ادعها من loop() — لا تحجب
-  // ترجع true إذا خلصت دورة كاملة
   bool poll();
-
   bool pollingCycleDone() const { return _pollCycleDone; }
   uint32_t pollingCycles() const { return _pollCycles; }
 
@@ -148,8 +154,21 @@ public:
   Error lastError() const { return _lastError; }
   const char *lastResponse() const { return _respBuf; }
   const char *lastCommand() const { return _cmdBuf; }
+  size_t lastResponseLen() const { return _respLen; }
+  const char *lastErrorName() const;
+
+  // ═══════════════════════════════════════════════════════════
+  //  Web Console (opt-in)
+  // ═══════════════════════════════════════════════════════════
+#if defined(VOLTRONIC_USE_WEB)
+  void attachWebServer(VoltWebServer *server);
+  void attachWebServer(VoltWebServer *server,
+                       const char *user, const char *pass);
+  void setWebPrefix(const char *prefix);
+#endif
 
 private:
+  // ─── Core ───
   VoltronicTransport _transport;
   VoltronicConfig _localCfg;
 
@@ -157,7 +176,6 @@ private:
   size_t _respLen = 0;
   char _cmdBuf[VOLTRONIC_CMD_BUF_SIZE];
 
-  // Data structs
   QPIGSData _qpigs;
   QPIGS2Data _qpigs2;
   QPIRIData _qpiri;
@@ -171,14 +189,14 @@ private:
   SelectableValues _maxUtilChg;
   TimeOrderInfo _outputTO;
   TimeOrderInfo _chargerTO;
-  uint32_t _warningsRaw = 0;
+  uint64_t _warningsRaw = 0;
   char _mode = ' ';
   bool _hasBoot = false;
   uint32_t _validBits = 0;
 
   Error _lastError = ERR_NONE;
 
-  // ─── Poll state ───
+  // ─── Polling ───
   VoltronicPollSchedule _pollSchedule;
   bool _pollEnabled = false;
   uint8_t _pollIndex = 0;
@@ -193,8 +211,27 @@ private:
   bool isAck() const;
   bool isNak() const;
   const char *payloadStart() const;
-
-  // ─── Poll helpers ───
+  void applyPrintableFilter();
   bool execPollQuery(uint8_t idx);
   uint16_t getPollInterval(uint8_t idx) const;
+
+  // ═══════════════════════════════════════════════════════════
+  //  Web members (opt-in)
+  // ═══════════════════════════════════════════════════════════
+#if defined(VOLTRONIC_USE_WEB)
+  VoltWebServer *_webServer = nullptr;
+  char _webPrefix[24];
+  char _webUser[32];
+  char _webPass[64];
+  bool _webAuthOn = false;
+  void _webHandleBattery();
+  void _webHandleSmartCharger();
+  void _webHandleStatus();
+  void _webRegisterRoutes();
+  bool _webRequireAuth();
+  void _webHandlePage();
+  void _webHandleList();
+  void _webHandleExecute();
+  void _webHandlePowerMode();
+#endif
 };

@@ -3,6 +3,7 @@
 #######################################
 VoltronicMAX	KEYWORD1
 VoltronicConfig	KEYWORD1
+VoltronicPollSchedule	KEYWORD1
 QPIGSData	KEYWORD1
 QPIGS2Data	KEYWORD1
 QPIRIData	KEYWORD1
@@ -15,16 +16,31 @@ BatteryControlStatus	KEYWORD1
 SelectableValues	KEYWORD1
 TimeOrderInfo	KEYWORD1
 WarningDecoded	KEYWORD1
+VoltWebServer	KEYWORD1
+VoltWebCmdEntry	KEYWORD1
+VoltronicBattery	KEYWORD1
+VoltronicSmartCharger	KEYWORD1
+VoltronicPowerMode	KEYWORD1
+VoltronicStorage	KEYWORD1
+VoltronicLang	KEYWORD1
+VoltronicBatteryType	KEYWORD1
+DeviceStatusInfo	KEYWORD1
 
 #######################################
-# Init
+# Init / Config
 #######################################
 begin	KEYWORD2
 setTimeout	KEYWORD2
 setRetries	KEYWORD2
 
 #######################################
-# Queries
+# Raw commands
+#######################################
+sendRaw	KEYWORD2
+sendRawSetting	KEYWORD2
+
+#######################################
+# Queries (Inquiry)
 #######################################
 queryProtocolID	KEYWORD2
 querySerialNumber	KEYWORD2
@@ -106,6 +122,264 @@ warnings	KEYWORD2
 mode	KEYWORD2
 modeString	KEYWORD2
 validBits	KEYWORD2
+hasBoot	KEYWORD2
+decodeDeviceStatus	KEYWORD2
+
+#######################################
+# Battery (v1.3.0)
+#######################################
+battery	KEYWORD1
+setType	KEYWORD2
+setCapacity	KEYWORD2
+setVoltageEmpty	KEYWORD2
+setVoltageFull	KEYWORD2
+setNominalVoltage	KEYWORD2
+setInitialSoh	KEYWORD2
+setCycleCount	KEYWORD2
+soc	KEYWORD2
+soh	KEYWORD2
+netCurrent	KEYWORD2
+netPower	KEYWORD2
+remainingWh	KEYWORD2
+remainingKWh	KEYWORD2
+remainingHours	KEYWORD2
+timeToFull	KEYWORD2
+cRate	KEYWORD2
+voltage	KEYWORD2
+chargeCurrent	KEYWORD2
+dischargeCurrent	KEYWORD2
+status	KEYWORD2
+typeName	KEYWORD2
+capacityAh	KEYWORD2
+nominalV	KEYWORD2
+voltageEmpty	KEYWORD2
+voltageFull	KEYWORD2
+cycleCount	KEYWORD2
+typeToString	KEYWORD2
+typeFromString	KEYWORD2
+
+#######################################
+# Smart Charger (v1.3.0)
+#######################################
+smartCharger	KEYWORD1
+setMode	KEYWORD2
+setTargetAC	KEYWORD2
+setTargetTotal	KEYWORD2
+setFloatAC	KEYWORD2
+setFloatTotal	KEYWORD2
+setTempProtectC	KEYWORD2
+targetAC	KEYWORD2
+targetTotal	KEYWORD2
+floatAC	KEYWORD2
+floatTotal	KEYWORD2
+tempProtectC	KEYWORD2
+currentAC	KEYWORD2
+currentTotal	KEYWORD2
+stage	KEYWORD2
+changes	KEYWORD2
+floatEntries	KEYWORD2
+tempProtects	KEYWORD2
+lastChangeMs	KEYWORD2
+tempProtection	KEYWORD2
+configError	KEYWORD2
+optionsLoaded	KEYWORD2
+acOptions	KEYWORD2
+totalOptions	KEYWORD2
+modeToString	KEYWORD2
+
+#######################################
+# Power Mode (v1.3.0)
+#######################################
+powerMode	KEYWORD1
+setSocEmergency	KEYWORD2
+setSocPowerSaving	KEYWORD2
+setSocRecover	KEYWORD2
+setSocSurplus	KEYWORD2
+setGridMinVoltage	KEYWORD2
+socEmergency	KEYWORD2
+socPowerSaving	KEYWORD2
+socRecover	KEYWORD2
+socSurplus	KEYWORD2
+gridMinVoltage	KEYWORD2
+emergencyLocked	KEYWORD2
+setEmergencyLocked	KEYWORD2
+resetLock	KEYWORD2
+modeNameEn	KEYWORD2
+modeNameAr	KEYWORD2
+
+#######################################
+# Storage / EEPROM (v1.3.0)
+#######################################
+storage	KEYWORD1
+load	KEYWORD2
+save	KEYWORD2
+reset	KEYWORD2
+tick	KEYWORD2
+isLoaded	KEYWORD2
+isDirty	KEYWORD2
+markDirty	KEYWORD2
+saves	KEYWORD2
+
+#######################################
+# Language (v1.3.0)
+#######################################
+lang	KEYWORD1
+setLanguage	KEYWORD2
+language	KEYWORD2
+isArabic	KEYWORD2
+tr	KEYWORD2
+batteryTypeStr	KEYWORD2
+inverterModeStr	KEYWORD2
+outputPrioStr	KEYWORD2
+chargerPrioStr	KEYWORD2
+inputRangeStr	KEYWORD2
+powerModeStr	KEYWORD2
+chargingCodeStr	KEYWORD2
+
+#######################################
+# Status
+#######################################
 lastError	KEYWORD2
+lastErrorName	KEYWORD2
 lastResponse	KEYWORD2
+lastResponseLen	KEYWORD2
 lastCommand	KEYWORD2
+
+#######################################
+# Non-blocking polling
+#######################################
+startPolling	KEYWORD2
+stopPolling	KEYWORD2
+poll	KEYWORD2
+pollingCycleDone	KEYWORD2
+pollingCycles	KEYWORD2
+
+#######################################
+# Web console (opt-in)
+#######################################
+attachWebServer	KEYWORD2
+setWebPrefix	KEYWORD2
+
+#######################################
+# Constants (KEYWORD3 = literals)
+#######################################
+ERR_NONE	KEYWORD3
+ERR_TIMEOUT	KEYWORD3
+ERR_SHORT	KEYWORD3
+ERR_CRC	KEYWORD3
+ERR_NAK	KEYWORD3
+ERR_BAD_RESP	KEYWORD3
+ERR_PARSE	KEYWORD3
+ERR_BUSY	KEYWORD3
+ERR_TOO_LONG	KEYWORD3
+
+VVB_QPIGS	KEYWORD3
+VVB_QPIGS2	KEYWORD3
+VVB_QPIRI	KEYWORD3
+VVB_QMOD	KEYWORD3
+VVB_QPIWS	KEYWORD3
+VVB_QFLAG	KEYWORD3
+VVB_QID	KEYWORD3
+VVB_QDI	KEYWORD3
+VVB_QMCHGCR	KEYWORD3
+VVB_QMUCHGCR	KEYWORD3
+VVB_QOPPT	KEYWORD3
+VVB_QCHPT	KEYWORD3
+VVB_QT	KEYWORD3
+VVB_QBEQI	KEYWORD3
+VVB_QMN	KEYWORD3
+VVB_QGMN	KEYWORD3
+VVB_QBOOT	KEYWORD3
+VVB_QBATCD	KEYWORD3
+VVB_QLED	KEYWORD3
+VVB_QPGS	KEYWORD3
+VVB_QVFW	KEYWORD3
+VVB_QSID	KEYWORD3
+VVB_QVFW3	KEYWORD3
+VVB_VERFW	KEYWORD3
+
+VC_OUT_PRIO_UTILITY_FIRST	KEYWORD3
+VC_OUT_PRIO_SOLAR_FIRST	KEYWORD3
+VC_OUT_PRIO_SBU	KEYWORD3
+VC_CHG_PRIO_SOLAR_FIRST	KEYWORD3
+VC_CHG_PRIO_SOLAR_UTILITY	KEYWORD3
+VC_CHG_PRIO_SOLAR_ONLY	KEYWORD3
+
+VC_BAT_TYPE_AGM	KEYWORD3
+VC_BAT_TYPE_FLOODED	KEYWORD3
+VC_BAT_TYPE_USER	KEYWORD3
+VC_BAT_TYPE_PYLONTECH	KEYWORD3
+
+VC_MODE_POWER_ON	KEYWORD3
+VC_MODE_STANDBY	KEYWORD3
+VC_MODE_LINE	KEYWORD3
+VC_MODE_BATTERY	KEYWORD3
+VC_MODE_FAULT	KEYWORD3
+VC_MODE_POWER_SAVING	KEYWORD3
+VC_MODE_SHUTDOWN	KEYWORD3
+
+VC_FLAG_BUZZER	KEYWORD3
+VC_FLAG_OVERLOAD_BYPASS	KEYWORD3
+VC_FLAG_SOLAR_FEED_GRID	KEYWORD3
+VC_FLAG_POWER_SAVING	KEYWORD3
+VC_FLAG_LCD_DEFAULT	KEYWORD3
+VC_FLAG_OVERLOAD_RESTART	KEYWORD3
+VC_FLAG_OVERTEMP_RESTART	KEYWORD3
+VC_FLAG_BACKLIGHT	KEYWORD3
+VC_FLAG_ALARM_PRIMARY	KEYWORD3
+VC_FLAG_FAULT_CODE_REC	KEYWORD3
+
+#######################################
+# Battery types (enum)
+#######################################
+User	KEYWORD3
+AGM	KEYWORD3
+Flooded	KEYWORD3
+Pylontech	KEYWORD3
+LiFePO4_15S	KEYWORD3
+LiFePO4_16S	KEYWORD3
+
+#######################################
+# Smart Charger modes (enum)
+#######################################
+DISABLED	KEYWORD3
+STANDARD	KEYWORD3
+FAST	KEYWORD3
+
+#######################################
+# Power modes (enum)
+#######################################
+NORMAL	KEYWORD3
+POWER_SAVING	KEYWORD3
+EMERGENCY_MAX	KEYWORD3
+SOLAR_SURPLUS	KEYWORD3
+GRID_SURPLUS	KEYWORD3
+COMBINED_SURPLUS	KEYWORD3
+
+#######################################
+# Languages (enum)
+#######################################
+ENGLISH	KEYWORD3
+ARABIC	KEYWORD3
+
+#######################################
+# Config macros (KEYWORD3)
+#######################################
+VOLTRONIC_USE_WEB	KEYWORD3
+VOLTRONIC_RESP_BUF_SIZE	KEYWORD3
+VOLTRONIC_CMD_BUF_SIZE	KEYWORD3
+VOLTRONIC_MAX_RETRIES	KEYWORD3
+VOLTRONIC_DEFAULT_BAUD	KEYWORD3
+VOLTRONIC_DEFAULT_TIMEOUT_MS	KEYWORD3
+VOLTRONIC_CRC_ESCAPE	KEYWORD3
+VOLTRONIC_FILTER_PRINTABLE	KEYWORD3
+VOLTRONIC_YIELD_IN_READ	KEYWORD3
+
+#######################################
+# CRC helpers
+#######################################
+voltronicCRC	KEYWORD2
+voltronicCRCUpdate	KEYWORD2
+voltronicEscapeByte	KEYWORD2
+voltronicUnescapeByte	KEYWORD2
+voltronicCRCBytes	KEYWORD2

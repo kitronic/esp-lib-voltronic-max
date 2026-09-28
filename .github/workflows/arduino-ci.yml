@@ -4,8 +4,12 @@ on:
   push:
     branches: [main, master]
   pull_request:
+    branches: [main, master]
 
 jobs:
+  # ═══════════════════════════════════════════════════════════
+  #  Compile library for each supported platform
+  # ═══════════════════════════════════════════════════════════
   compile:
     runs-on: ubuntu-latest
     strategy:
@@ -15,50 +19,73 @@ jobs:
           - platform: esp32
             arch: esp32
             fqbn: esp32:esp32:esp32
+            examples: "01_BasicRead 03_GeneralStatus 19_WebConsoleESP32"
+
           - platform: esp8266
             arch: esp8266
             fqbn: esp8266:esp8266:nodemcuv2
+            examples: "01_BasicRead 03_GeneralStatus 19_WebConsole"
+
           - platform: arduino
             arch: avr
             fqbn: arduino:avr:uno
+            examples: "01_BasicRead"
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: arduino/setup-arduino-cli@v1
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v1
 
-      - name: Add ESP8266 index
+      - name: Configure ESP8266 board index
         if: matrix.platform == 'esp8266'
         run: |
           arduino-cli config init
           arduino-cli config add board_manager.additional_urls \
             https://arduino.esp8266.com/stable/package_esp8266com_index.json
 
+      - name: Configure ESP32 board index
+        if: matrix.platform == 'esp32'
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls \
+            https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+
       - name: Update index & install core
         run: |
           arduino-cli core update-index
           arduino-cli core install ${{ matrix.platform }}:${{ matrix.arch }}
 
-
-      - name: Install VoltronicMAX library locally
+      - name: Install library locally
         run: |
           mkdir -p ~/Arduino/libraries/VoltronicMAX
           cp -r src ~/Arduino/libraries/VoltronicMAX/
           cp library.properties ~/Arduino/libraries/VoltronicMAX/
+          cp keywords.txt ~/Arduino/libraries/VoltronicMAX/
 
-      - name: Compile BasicRead
-        if: matrix.platform != 'arduino' || true  # ← خليها للكل بس مع مثال محدّث
+      - name: Compile example(s)
         run: |
-          mkdir -p /tmp/sketch/01_BasicRead
-          cp examples/01_BasicRead.ino /tmp/sketch/01_BasicRead/01_BasicRead.ino
-          arduino-cli compile --fqbn ${{ matrix.fqbn }} /tmp/sketch/01_BasicRead
+          set -e
+          for example in ${{ matrix.examples }}; do
+            echo "::group::Compiling $example on ${{ matrix.fqbn }}"
+            mkdir -p /tmp/sketch_$example
+            cp examples/$example/$example.ino /tmp/sketch_$example/$example.ino
+            arduino-cli compile \
+              --fqbn ${{ matrix.fqbn }} \
+              --warnings more \
+              /tmp/sketch_$example
+            echo "::endgroup::"
+          done
 
+  # ═══════════════════════════════════════════════════════════
+  #  Native tests (host build, no Arduino required)
+  # ═══════════════════════════════════════════════════════════
   native-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check test structure
+      - name: Verify test structure
         run: |
           ls -la test/ || echo "test/ not found"
           ls -la test/test_native/ || echo "test/test_native/ not found"
@@ -66,9 +93,75 @@ jobs:
       - name: Build & run native tests
         run: |
           cd test/test_native
-          g++ -std=c++11 -I. -I../../src \
+          g++ -std=c++11 \
+              -Wall -Wextra -Wno-unused-parameter \
+              -I. -I../../src \
               test_native.cpp \
               ../../src/VoltronicParser.cpp \
               Arduino.cpp \
               -o test_native
           ./test_native
+
+  # ═══════════════════════════════════════════════════════════
+  #  Library metadata validation
+  # ═══════════════════════════════════════════════════════════
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate library.properties
+        run: |
+          echo "Checking library.properties required fields..."
+          for field in name version author maintainer sentence paragraph category url architectures; do
+            if ! grep -q "^$field=" library.properties; then
+              echo "::error::Missing required field: $field"
+              exit 1
+            fi
+          done
+          echo "✅ All required fields present"
+
+      - name: Check version format (semver)
+        run: |
+          version=$(grep '^version=' library.properties | cut -d= -f2)
+          if ! echo "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Version '$version' is not valid semver"
+            exit 1
+          fi
+          echo "✅ Version $version is valid semver"
+
+      - name: Check CHANGELOG has current version
+        run: |
+          version=$(grep '^version=' library.properties | cut -d= -f2)
+          if ! grep -q "\[$version\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md missing entry for version $version"
+            exit 1
+          fi
+          echo "✅ CHANGELOG has entry for $version"
+
+      - name: Check for trailing whitespace in source files
+        run: |
+          if grep -rn ' $' src/*.h src/*.cpp; then
+            echo "::warning::Trailing whitespace found in source files"
+          else
+            echo "✅ No trailing whitespace"
+          fi
+        continue-on-error: true
+
+  # ═══════════════════════════════════════════════════════════
+  #  Summary (fails if any dependency failed)
+  # ═══════════════════════════════════════════════════════════
+  ci-success:
+    needs: [compile, native-tests, lint]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        run: |
+          if [ "${{ needs.compile.result }}" != "success" ] || \
+             [ "${{ needs.native-tests.result }}" != "success" ] || \
+             [ "${{ needs.lint.result }}" != "success" ]; then
+            echo "::error::One or more CI jobs failed"
+            exit 1
+          fi
+          echo "✅ All CI jobs passed"
