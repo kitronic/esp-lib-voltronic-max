@@ -1680,15 +1680,30 @@ void VoltronicMAX::_webHandleExecute()
     _webServer->send_P(400, PSTR("application/json"), PSTR("{\"error\":\"missing cmd\"}"));
     return;
   }
-  String cmd = _webServer->arg("cmd");
-  String param = _webServer->arg("param");
+
+  // ─── نسخ فوري من String المؤقت إلى char[] ───
+  char cmd[24] = {0};
+  char param[24] = {0};
+  strncpy(cmd, _webServer->arg("cmd").c_str(), sizeof(cmd) - 1);
+  strncpy(param, _webServer->arg("param").c_str(), sizeof(param) - 1);
   uint8_t type = (uint8_t)_webServer->arg("type").toInt();
 
-  String full = cmd;
-  if (param.length())
-    full += param;
+  // ─── بناء الأمر الكامل في char[] ───
+  char full[VOLTRONIC_CMD_BUF_SIZE] = {0};
+  size_t cmdLen = strlen(cmd);
+  size_t paramLen = strlen(param);
 
-  bool ok = (type == 1) ? sendRawSetting(full.c_str()) : sendRaw(full.c_str());
+  if (cmdLen + paramLen >= sizeof(full))
+  {
+    _webServer->send_P(400, PSTR("application/json"), PSTR("{\"error\":\"cmd too long\"}"));
+    return;
+  }
+
+  memcpy(full, cmd, cmdLen);
+  memcpy(full + cmdLen, param, paramLen);
+  full[cmdLen + paramLen] = '\0';
+
+  bool ok = (type == 1) ? sendRawSetting(full) : sendRaw(full);
 
   const char* raw = lastResponse();
   static char esc[512];
@@ -1699,7 +1714,7 @@ void VoltronicMAX::_webHandleExecute()
              sizeof(out),
              PSTR("{\"ok\":%s,\"cmd\":\"%s\",\"response\":\"%s\",\"error\":\"%s\"}"),
              ok ? "true" : "false",
-             full.c_str(),
+             full,
              esc,
              ok ? "" : lastErrorName());
 
