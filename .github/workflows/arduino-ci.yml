@@ -19,12 +19,12 @@ jobs:
           - platform: esp32
             arch: esp32
             fqbn: esp32:esp32:esp32
-            examples: "01_BasicRead 03_GeneralStatus 19_WebConsoleESP32"
+            examples: "01_BasicRead 03_GeneralStatus 20_WebConsoleESP32"
 
           - platform: esp8266
             arch: esp8266
             fqbn: esp8266:esp8266:nodemcuv2
-            examples: "01_BasicRead 03_GeneralStatus 19_WebConsole"
+            examples: "01_BasicRead 03_GeneralStatus 23_WebConsole"
 
           - platform: arduino
             arch: avr
