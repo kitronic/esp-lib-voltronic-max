@@ -1,7 +1,6 @@
 #include "VoltronicPowerMode.h"
 #include "VoltronicMAX.h"
 #include "VoltronicLang.h"
-
 VoltronicPowerMode::VoltronicPowerMode() {}
 
 // ═══════════════════════════════════════════════════════════════

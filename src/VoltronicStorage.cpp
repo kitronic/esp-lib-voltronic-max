@@ -2,13 +2,30 @@
 #include "VoltronicMAX.h"
 #include <EEPROM.h>
 #include <string.h>
+#include "VoltronicLog.h"
+// ═══════════════════════════════════════════════════════════════
+//  Platform-specific EEPROM handling
+//  ═══════════════════════════════════════════════════════════════
+//  ESP8266/ESP32 : EEPROM.begin(size) + EEPROM.commit()
+//  AVR/SAMD/STM32: EEPROM.begin()  (no args) — no commit needed
+// ═══════════════════════════════════════════════════════════════
+#if defined(ESP8266) || defined(ESP32)
+#define VSTORAGE_EEPROM_BEGIN(size) EEPROM.begin(size)
+#define VSTORAGE_EEPROM_COMMIT() EEPROM.commit()
+#define VSTORAGE_HAS_PRINTF_P 1
+#else
+#define VSTORAGE_EEPROM_BEGIN(size) EEPROM.begin()
+#define VSTORAGE_EEPROM_COMMIT() (true)
+#define VSTORAGE_HAS_PRINTF_P 0
+#endif
 
+// ═══════════════════════════════════════════════════════════════
 VoltronicStorage::VoltronicStorage()
 {
     memset(&_data, 0, sizeof(_data));
 }
 
-// ─── CRC16 (نفس XMODEM بدون تهريب) ───
+// ─── CRC16 (XMODEM, no escape) ───
 uint16_t VoltronicStorage::_calcCRC(const Data &d)
 {
     const uint8_t *p = (const uint8_t *)&d;
@@ -27,8 +44,8 @@ uint16_t VoltronicStorage::_calcCRC(const Data &d)
 void VoltronicStorage::begin(uint16_t eepromSize)
 {
     _size = eepromSize;
-    EEPROM.begin(_size);
-    Serial.printf_P(PSTR("[Storage] EEPROM %u bytes\n"), _size);
+    VOLTRONIC_EEPROM_BEGIN(_size);
+    VLOG("[Storage] EEPROM ready");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -38,7 +55,7 @@ void VoltronicStorage::load(VoltronicMAX &inv)
 
     if (_data.magic != MAGIC || _data.version != VERSION)
     {
-        Serial.println(F("[Storage] No valid data — using defaults"));
+        VLOG("[Storage] No valid data - using defaults");
         reset();
         return;
     }
@@ -51,14 +68,14 @@ void VoltronicStorage::load(VoltronicMAX &inv)
 
     if (expected != actual)
     {
-        Serial.println(F("[Storage] CRC error — using defaults"));
+        VLOG("[Storage] CRC error - using defaults");
         reset();
         return;
     }
 
     _applyTo(inv);
     _loaded = true;
-    Serial.println(F("[Storage] Loaded OK"));
+    VLOG("[Storage] Loaded OK");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -71,17 +88,17 @@ void VoltronicStorage::save(const VoltronicMAX &inv)
     _data.crc = _calcCRC(_data);
 
     EEPROM.put(0, _data);
-    bool ok = EEPROM.commit();
+    bool ok = VOLTRONIC_EEPROM_COMMIT();
 
     if (ok)
     {
         _saves++;
         _dirty = false;
-        Serial.printf_P(PSTR("[Storage] Saved (count=%u)\n"), _saves);
+        VLOG("[Storage] Saved OK");
     }
     else
     {
-        Serial.println(F("[Storage] Save FAILED"));
+        VLOG("[Storage] Save FAILED");
     }
 }
 
@@ -140,7 +157,8 @@ void VoltronicStorage::_applyTo(VoltronicMAX &inv)
 
     // Power Mode
     inv.powerMode.setEmergencyLocked(_data.pmLocked != 0);
-    // بعد storage.begin
+
+    VLOG("[Storage] Battery+SC+PM loaded");
     inv.lang.setLanguage((VoltronicLang::Language)(_data._pad1 > 1 ? 0 : _data._pad1));
 
     // Power Mode thresholds
@@ -155,14 +173,15 @@ void VoltronicStorage::_applyTo(VoltronicMAX &inv)
     if (_data.pmGridMinVoltage >= 100 && _data.pmGridMinVoltage <= 220)
         inv.powerMode.setGridMinVoltage((float)_data.pmGridMinVoltage);
 
-    Serial.printf_P(PSTR("[Storage] Battery: type=%u cap=%.0fAh vE=%.1f vF=%.1f\n"),
-                    _data.batteryType, _data.batteryCapacityAh,
-                    _data.batteryVoltageEmpty, _data.batteryVoltageFull);
-    Serial.printf_P(PSTR("[Storage] SC: mode=%u AC=%u T=%u fAC=%u fT=%u temp=%u\n"),
-                    _data.scMode, _data.scTargetAC, _data.scTargetTotal,
-                    _data.scFloatAC, _data.scFloatTotal, _data.scTempProtectC);
+    VLOG(("[Storage] Battery: type=%u cap=%.0fAh vE=%.1f vF=%.1f\n"),
+         _data.batteryType, _data.batteryCapacityAh,
+         _data.batteryVoltageEmpty, _data.batteryVoltageFull);
+    VLOG(("[Storage] SC: mode=%u AC=%u T=%u fAC=%u fT=%u temp=%u\n"),
+         _data.scMode, _data.scTargetAC, _data.scTargetTotal,
+         _data.scFloatAC, _data.scFloatTotal, _data.scTempProtectC);
 }
 
+// ═══════════════════════════════════════════════════════════════
 void VoltronicStorage::_captureFrom(const VoltronicMAX &inv)
 {
     // Battery
@@ -192,8 +211,6 @@ void VoltronicStorage::_captureFrom(const VoltronicMAX &inv)
     _data.pmGridMinVoltage = (uint16_t)inv.powerMode.gridMinVoltage();
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Auto-save بعد 5 ثواني من آخر تغيير
 // ═══════════════════════════════════════════════════════════════
 void VoltronicStorage::tick(VoltronicMAX &inv)
 {

@@ -3,7 +3,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
-
 // ═══════════════════════════════════════════════════════════════
 VoltronicSmartCharger::VoltronicSmartCharger()
     : _mode(STANDARD), _targetAC(40), _targetTotal(80), _floatAC(2), _floatTotal(10), _tempProtectC(70), _currentAC(0), _currentTotal(0), _changes(0), _floatEntries(0), _tempProtects(0), _lastChange(0), _inTempProtect(false), _lastWasFloat(false), _optionsLoaded(false)
