@@ -1,13 +1,24 @@
 #include <VoltronicMAX.h>
+#if defined(ESP8266) || defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_SAMD)
 #include <SoftwareSerial.h>
+#endif
 
+#if defined(ESP8266)
 SoftwareSerial invSerial(D1, D2);
+#elif defined(ESP32)
+  // ESP32: استخدم Serial2
+#define invSerial Serial2
+#endif
 VoltronicMAX inverter(invSerial);
 
 void setup()
 {
   Serial.begin(115200);
+#if defined(ESP8266)
   invSerial.begin(2400);
+#elif defined(ESP32)
+  Serial2.begin(2400, SERIAL_8N1, 16, 17);
+#endif
   Serial.println(F("--- 03 QPIGS Full Status ---"));
   inverter.begin(2400);
 }

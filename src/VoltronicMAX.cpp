@@ -1628,7 +1628,7 @@ void VoltronicMAX::_webHandleBattery()
              battery.capacityAh(), battery.typeName());
   _webServer->send(200, "application/json", buf);
 
-  VLOG(("[Web] Battery saved: %.0fAh, type=%s\n"),
+  VLOG("[Web] Battery saved: %.0fAh, type=%s\n",
        battery.capacityAh(), battery.typeName());
 }
 
@@ -1655,7 +1655,7 @@ void VoltronicMAX::_webHandleSmartCharger()
 
   _webServer->send_P(200, PSTR("application/json"), PSTR("{\"ok\":true}"));
 
-  VLOG(("[Web] SmartCharger saved: mode=%u AC=%u T=%u\n"),
+  VLOG("[Web] SmartCharger saved: mode=%u AC=%u T=%u\n",
        (unsigned)smartCharger.mode(),
        smartCharger.targetAC(),
        smartCharger.targetTotal());
@@ -1745,7 +1745,7 @@ void VoltronicMAX::_webRegisterRoutes()
   _webServer->on(pPM, HTTP_POST, [this]()
                  { _webHandlePowerMode(); });
 
-  VLOG(("[Voltronic] Web routes at \"%s\"\n"), _webPrefix);
+  VLOG("[Voltronic] Web routes at \"%s\"\n", _webPrefix);
 }
 
 #endif // VOLTRONIC_USE_WEB

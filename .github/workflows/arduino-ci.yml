@@ -73,9 +73,20 @@ jobs:
             mkdir -p /tmp/$example
             cp examples/$example/$example.ino /tmp/$example/$example.ino
 
+            # ✅ تفعيل VOLTRONIC_USE_WEB لأمثلة Web فقط
+            #    --build-property يمرّر الفلاج لكل TU (بما فيها المكتبة .cpp)
+            if [[ "$example" == *"WebConsole"* ]]; then
+              EXTRA_FLAGS="-DVOLTRONIC_USE_WEB=1"
+              echo "  → Web mode: ENABLED"
+            else
+              EXTRA_FLAGS=""
+              echo "  → Web mode: disabled"
+            fi
+
             arduino-cli compile \
               --fqbn ${{ matrix.fqbn }} \
               --warnings more \
+              --build-property "build.extra_flags=$EXTRA_FLAGS" \
               /tmp/$example
 
             echo "::endgroup::"
