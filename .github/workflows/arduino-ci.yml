@@ -68,12 +68,16 @@ jobs:
           set -e
           for example in ${{ matrix.examples }}; do
             echo "::group::Compiling $example on ${{ matrix.fqbn }}"
-            mkdir -p /tmp/sketch_$example
-            cp examples/$example/$example.ino /tmp/sketch_$example/$example.ino
+
+            # ⚠️ Arduino CLI يتطلب أن اسم المجلد = اسم الملف (بدون .ino)
+            mkdir -p /tmp/$example
+            cp examples/$example/$example.ino /tmp/$example/$example.ino
+
             arduino-cli compile \
               --fqbn ${{ matrix.fqbn }} \
               --warnings more \
-              /tmp/sketch_$example
+              /tmp/$example
+
             echo "::endgroup::"
           done
 
