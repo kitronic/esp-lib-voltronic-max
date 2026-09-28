@@ -1,6 +1,6 @@
 #include "VoltronicParser.h"
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 // ═══════════════════════════════════════════════════════════════
 //  Numeric helpers
@@ -119,9 +119,13 @@ bool VoltronicParser::parseQPIGS(const char *payload, QPIGSData &out)
 
   char tok[16];
   auto next = [&]() -> bool
-  { return readToken(p, tok, sizeof(tok)); };
+  {
+    return readToken(p, tok, sizeof(tok));
+  };
   auto toU32 = [&](uint32_t &v)
-  { v = (uint32_t)strtoul(tok, nullptr, 10); };
+  {
+    v = (uint32_t)strtoul(tok, nullptr, 10);
+  };
   uint32_t u;
 
   if (!next())
@@ -245,7 +249,9 @@ bool VoltronicParser::parseQPIGS2(const char *payload, QPIGS2Data &out)
 
   char tok[16];
   auto next = [&]() -> bool
-  { return readToken(p, tok, sizeof(tok)); };
+  {
+    return readToken(p, tok, sizeof(tok));
+  };
 
   if (!next())
     return false;
@@ -256,8 +262,8 @@ bool VoltronicParser::parseQPIGS2(const char *payload, QPIGS2Data &out)
 
   if (!next())
   {
-    out.pv2ChargingPower = (uint16_t)((out.pv2InputVoltage_x10 / 10.0f) *
-                                      (out.pv2InputCurrent_x10 / 10.0f));
+    out.pv2ChargingPower =
+        (uint16_t)((out.pv2InputVoltage_x10 / 10.0f) * (out.pv2InputCurrent_x10 / 10.0f));
     return true;
   }
   out.pv2ChargingPower = (uint16_t)strtoul(tok, nullptr, 10);
@@ -276,9 +282,13 @@ bool VoltronicParser::parseQPIRI(const char *payload, QPIRIData &out)
 
   char tok[16];
   auto next = [&]() -> bool
-  { return readToken(p, tok, sizeof(tok)); };
+  {
+    return readToken(p, tok, sizeof(tok));
+  };
   auto toU32 = [&](uint32_t &v)
-  { v = (uint32_t)strtoul(tok, nullptr, 10); };
+  {
+    v = (uint32_t)strtoul(tok, nullptr, 10);
+  };
   uint32_t u;
 
   if (!next())
@@ -458,7 +468,7 @@ bool VoltronicParser::parseQFLAG(const char *payload, QFLAGData &out)
   if (hasFlag('x'))
     out.flags |= (1u << 7);
   if (hasFlag('y'))
-    out.flags |= (1u << 8); // ✅ bit 8
+    out.flags |= (1u << 8);  // ✅ bit 8
   if (hasFlag('z'))
     out.flags |= (1u << 9);
 
@@ -477,7 +487,9 @@ bool VoltronicParser::parseQPGSn(const char *payload, ParallelInfo &out)
 
   char tok[24];
   auto next = [&]() -> bool
-  { return readToken(p, tok, sizeof(tok)); };
+  {
+    return readToken(p, tok, sizeof(tok));
+  };
 
   if (!next())
     return false;
@@ -588,7 +600,9 @@ bool VoltronicParser::parseQBEQI(const char *payload, BatteryEqualizationInfo &o
 
   char tok[16];
   auto next = [&]() -> bool
-  { return readToken(p, tok, sizeof(tok)); };
+  {
+    return readToken(p, tok, sizeof(tok));
+  };
 
   if (!next())
     return false;
@@ -627,7 +641,9 @@ bool VoltronicParser::parseQLED(const char *payload, LedInfo &out)
 
   char tok[16];
   auto next = [&]() -> bool
-  { return readToken(p, tok, sizeof(tok)); };
+  {
+    return readToken(p, tok, sizeof(tok));
+  };
 
   if (!next())
     return false;
@@ -672,7 +688,9 @@ bool VoltronicParser::parseQDI(const char *payload, DefaultsInfo &out)
 
   char tok[16];
   auto next = [&]() -> bool
-  { return readToken(p, tok, sizeof(tok)); };
+  {
+    return readToken(p, tok, sizeof(tok));
+  };
 
   if (!next())
     return false;
@@ -816,21 +834,21 @@ const char *VoltronicParser::modeToString(char m)
 {
   switch (m)
   {
-  case 'P':
-    return "PowerOn";
-  case 'S':
-    return "Standby";
-  case 'L':
-    return "Line";
-  case 'B':
-    return "Battery";
-  case 'F':
-    return "Fault";
-  case 'H':
-    return "PowerSaving";
-  case 'D':
-    return "Shutdown";
-  default:
-    return "Unknown";
+    case 'P':
+      return "PowerOn";
+    case 'S':
+      return "Standby";
+    case 'L':
+      return "Line";
+    case 'B':
+      return "Battery";
+    case 'F':
+      return "Fault";
+    case 'H':
+      return "PowerSaving";
+    case 'D':
+      return "Shutdown";
+    default:
+      return "Unknown";
   }
 }

@@ -1,0 +1,57 @@
+name: Stale
+
+on:
+  schedule:
+    - cron: '0 0 * * *'    # يومياً منتصف الليل UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          # ─── Issues ───
+          days-before-issue-stale: 60
+          days-before-issue-close: 14
+          stale-issue-label: 'stale'
+          stale-issue-message: |
+            هذا الـ issue لم يتحرك منذ 60 يوماً.
+
+            سيُغلق تلقائياً بعد 14 يوماً إذا لم يتحرك.
+
+            إذا كانت المشكلة لا تزال قائمة، أضف تعليقاً بأي تحديث.
+
+          close-issue-message: |
+            أُغلق هذا الـ issue تلقائياً بسبب عدم النشاط.
+
+            يمكنك إعادة فتحه إذا تجددت المشكلة.
+
+          # ─── Pull Requests ───
+          days-before-pr-stale: 30
+          days-before-pr-close: 14
+          stale-pr-label: 'stale'
+          stale-pr-message: |
+            هذا الـ PR لم يتحرك منذ 30 يوماً.
+
+            سيُغلق تلقائياً بعد 14 يوماً إذا لم يتحرك.
+
+            إذا كنت لا تزال تعمل عليه، أضف تعليقاً أو ادفع تحديثاً.
+
+          close-pr-message: |
+            أُغلق هذا الـ PR تلقائياً بسبب عدم النشاط.
+
+          # ─── Exemptions ───
+          exempt-issue-labels: 'pinned,security,in-progress,help-wanted'
+          exempt-pr-labels: 'pinned,security,in-progress'
+          exempt-all-milestones: true
+          exempt-all-assignees: true
+
+          # ─── Misc ───
+          operations-per-run: 100
+          remove-stale-when-updated: true
+          ascending: true

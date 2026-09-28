@@ -1,0 +1,89 @@
+name: ✨ Feature Request
+description: اقترح ميزة جديدة
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        شكراً لاقتراحك! ✨
+        الرجاء توضيح الفكرة والسؤال "لماذا" قبل "ماذا".
+
+  - type: checkboxes
+    id: pre-checks
+    attributes:
+      label: قائمة التحقق
+      options:
+        - label: بحثت في Issues/Discussions السابقة ولم أجد نفس الاقتراح
+          required: true
+        - label: الفكرة تتناسب مع نطاق المكتبة (PI30 Protocol)
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: المشكلة التي تحلّها الميزة
+      description: "مثال: عندما أستخدم ... أواجه صعوبة في ..."
+      placeholder: |
+        أنا محبط لأن ...
+        لا أستطيع أن ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: الحل المقترح
+      description: وصف الفكرة بأي طريقة
+      placeholder: |
+        أقترح إضافة دالة setXxx() ...
+        أو إضافة كلاس VoltronicYyy ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: حلول بديلة
+      description: هل جربت حلولاً أخرى؟
+    validations:
+      required: false
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: التصنيف
+      options:
+        - Core Library
+        - Battery Calculation
+        - Smart Charger
+        - Power Mode
+        - Web Console
+        - MQTT Integration
+        - Language (AR/EN)
+        - Documentation
+        - Examples
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: حالة الاستخدام
+      description: مثال عملي على الفائدة
+      placeholder: |
+        أنا أستخدم المكتبة في ...
+        لذلك أحتاج ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: معلومات إضافية
+      description: روابط، صور، مخططات
+    validations:
+      required: false

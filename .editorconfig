@@ -1,0 +1,40 @@
+# ═══════════════════════════════════════════════════════════════
+#  EditorConfig for VoltronicMAX
+#  https://editorconfig.org
+# ═══════════════════════════════════════════════════════════════
+
+root = true
+
+# ─── Global ───
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# ─── C/C++ ───
+[*.{c,cpp,h,hpp,ino}]
+indent_size = 2
+charset = utf-8
+
+# ─── YAML ───
+[*.{yml,yaml}]
+indent_size = 2
+
+# ─── Markdown ───
+[*.md]
+trim_trailing_whitespace = false
+
+# ─── JSON ───
+[*.json]
+indent_size = 2
+
+# ─── INI ───
+[*.ini]
+indent_size = 2
+
+# ─── Batch/PowerShell ───
+[*.{bat,cmd,ps1}]
+end_of_line = crlf

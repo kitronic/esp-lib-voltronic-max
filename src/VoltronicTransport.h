@@ -21,15 +21,23 @@
 // ===============================================================
 class VoltronicTransport
 {
-public:
+ public:
   explicit VoltronicTransport(Stream &serial)
-      : _serial(serial), _cfg(nullptr) {}
+    : _serial(serial)
+    , _cfg(nullptr)
+  {
+  }
 
   // Bind config (called from VoltronicMAX::begin)
-  void attachConfig(const VoltronicConfig *cfg) { _cfg = cfg; }
+  void attachConfig(const VoltronicConfig *cfg)
+  {
+    _cfg = cfg;
+  }
 
   // No-op - user initializes Serial
-  void begin() {}
+  void begin()
+  {
+  }
 
   // Drain input buffer
   void clear()
@@ -101,9 +109,12 @@ public:
   }
 
   // Direct access (for debugging only)
-  Stream &stream() { return _serial; }
+  Stream &stream()
+  {
+    return _serial;
+  }
 
-private:
+ private:
   Stream &_serial;
   const VoltronicConfig *_cfg;
 };

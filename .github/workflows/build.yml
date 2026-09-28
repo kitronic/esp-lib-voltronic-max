@@ -1,16 +1,18 @@
-name: Arduino CI
+name: Build
 
 on:
   push:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
 
 jobs:
   # ═══════════════════════════════════════════════════════════
-  #  Compile library for each supported platform
+  #  Build examples on multiple platforms
   # ═══════════════════════════════════════════════════════════
   compile:
+    name: Compile ${{ matrix.fqbn }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -20,12 +22,10 @@ jobs:
             arch: esp32
             fqbn: esp32:esp32:esp32
             examples: "01_BasicRead 03_GeneralStatus 20_WebConsoleESP32"
-
           - platform: esp8266
             arch: esp8266
             fqbn: esp8266:esp8266:nodemcuv2
             examples: "01_BasicRead 03_GeneralStatus 23_WebConsole"
-
           - platform: arduino
             arch: avr
             fqbn: arduino:avr:uno
@@ -69,12 +69,9 @@ jobs:
           for example in ${{ matrix.examples }}; do
             echo "::group::Compiling $example on ${{ matrix.fqbn }}"
 
-            # ⚠️ Arduino CLI يتطلب أن اسم المجلد = اسم الملف (بدون .ino)
             mkdir -p /tmp/$example
             cp examples/$example/$example.ino /tmp/$example/$example.ino
 
-            # ✅ تفعيل VOLTRONIC_USE_WEB لأمثلة Web فقط
-            #    --build-property يمرّر الفلاج لكل TU (بما فيها المكتبة .cpp)
             if [[ "$example" == *"WebConsole"* ]]; then
               EXTRA_FLAGS="-DVOLTRONIC_USE_WEB=1"
               echo "  → Web mode: ENABLED"
@@ -93,19 +90,15 @@ jobs:
           done
 
   # ═══════════════════════════════════════════════════════════
-  #  Native tests (host build, no Arduino required)
+  #  Native tests (host build)
   # ═══════════════════════════════════════════════════════════
   native-tests:
+    name: Native Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify test structure
-        run: |
-          ls -la test/ || echo "test/ not found"
-          ls -la test/test_native/ || echo "test/test_native/ not found"
-
-      - name: Build & run native tests
+      - name: Build & run
         run: |
           cd test/test_native
           g++ -std=c++11 \
@@ -118,65 +111,19 @@ jobs:
           ./test_native
 
   # ═══════════════════════════════════════════════════════════
-  #  Library metadata validation
+  #  Build status summary
   # ═══════════════════════════════════════════════════════════
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Validate library.properties
-        run: |
-          echo "Checking library.properties required fields..."
-          for field in name version author maintainer sentence paragraph category url architectures; do
-            if ! grep -q "^$field=" library.properties; then
-              echo "::error::Missing required field: $field"
-              exit 1
-            fi
-          done
-          echo "✅ All required fields present"
-
-      - name: Check version format (semver)
-        run: |
-          version=$(grep '^version=' library.properties | cut -d= -f2)
-          if ! echo "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "::error::Version '$version' is not valid semver"
-            exit 1
-          fi
-          echo "✅ Version $version is valid semver"
-
-      - name: Check CHANGELOG has current version
-        run: |
-          version=$(grep '^version=' library.properties | cut -d= -f2)
-          if ! grep -q "\[$version\]" CHANGELOG.md; then
-            echo "::error::CHANGELOG.md missing entry for version $version"
-            exit 1
-          fi
-          echo "✅ CHANGELOG has entry for $version"
-
-      - name: Check for trailing whitespace in source files
-        run: |
-          if grep -rn ' $' src/*.h src/*.cpp; then
-            echo "::warning::Trailing whitespace found in source files"
-          else
-            echo "✅ No trailing whitespace"
-          fi
-        continue-on-error: true
-
-  # ═══════════════════════════════════════════════════════════
-  #  Summary (fails if any dependency failed)
-  # ═══════════════════════════════════════════════════════════
-  ci-success:
-    needs: [compile, native-tests, lint]
+  build-status:
+    name: Build Status
+    needs: [compile, native-tests]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Check all jobs passed
         run: |
           if [ "${{ needs.compile.result }}" != "success" ] || \
-             [ "${{ needs.native-tests.result }}" != "success" ] || \
-             [ "${{ needs.lint.result }}" != "success" ]; then
-            echo "::error::One or more CI jobs failed"
+             [ "${{ needs.native-tests.result }}" != "success" ]; then
+            echo "::error::One or more build jobs failed"
             exit 1
           fi
-          echo "✅ All CI jobs passed"
+          echo "✅ All build jobs passed"

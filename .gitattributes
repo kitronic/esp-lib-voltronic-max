@@ -1,6 +1,40 @@
+# ═══════════════════════════════════════════════════════════════
+#  Git attributes
+# ═══════════════════════════════════════════════════════════════
+
+# ─── Default: LF في كل مكان ───
 * text=auto eol=lf
-*.ino text eol=lf
-*.h   text eol=lf
-*.cpp text eol=lf
-*.md  text eol=lf
-*.pdf binary
+
+# ─── C++ source files ───
+*.c    text diff=cpp
+*.cpp  text diff=cpp
+*.h    text diff=cpp
+*.hpp  text diff=cpp
+*.ino  text diff=cpp
+
+# ─── Documents ───
+*.md   text
+*.txt  text
+
+# ─── Config ───
+*.yml  text
+*.yaml text
+*.json text
+*.ini  text
+*.properties text
+
+# ─── Binary (do not convert) ───
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.pdf  binary
+*.bin  binary
+*.hex  binary
+
+# ─── Mark as generated (exclude from stats) ───
+.pio/* linguist-generated=true
+build/* linguist-generated=true
+
+# ─── Documentation (exclude from language stats) ───
+docs/* linguist-documentation=true

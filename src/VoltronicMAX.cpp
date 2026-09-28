@@ -1,12 +1,14 @@
 #include "VoltronicMAX.h"
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 #include "VoltronicLog.h"
 // ═══════════════════════════════════════════════════════════════
 //  Constructor
 // ═══════════════════════════════════════════════════════════════
 VoltronicMAX::VoltronicMAX(Stream &serial)
-    : _transport(serial) {}
+  : _transport(serial)
+{
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  Initialization
@@ -16,8 +18,8 @@ bool VoltronicMAX::begin(const VoltronicConfig &cfg)
   _localCfg = cfg;
   _transport.attachConfig(&_localCfg);
   _transport.clear();
-  storage.begin(512);  // ← جديد
-  storage.load(*this); // ← جديد
+  storage.begin(512);   // ← جديد
+  storage.load(*this);  // ← جديد
   return true;
 }
 
@@ -28,8 +30,14 @@ bool VoltronicMAX::begin(uint32_t baud)
   return begin(cfg);
 }
 
-void VoltronicMAX::setTimeout(uint16_t ms) { _localCfg.responseTimeoutMs = ms; }
-void VoltronicMAX::setRetries(uint8_t r) { _localCfg.retries = r; }
+void VoltronicMAX::setTimeout(uint16_t ms)
+{
+  _localCfg.responseTimeoutMs = ms;
+}
+void VoltronicMAX::setRetries(uint8_t r)
+{
+  _localCfg.retries = r;
+}
 // ═══════════════════════════════════════════════════════════════
 //  Error name helper
 // ═══════════════════════════════════════════════════════════════
@@ -37,26 +45,26 @@ const char *VoltronicMAX::lastErrorName() const
 {
   switch (_lastError)
   {
-  case ERR_NONE:
-    return "NONE";
-  case ERR_TIMEOUT:
-    return "TIMEOUT";
-  case ERR_SHORT:
-    return "SHORT";
-  case ERR_CRC:
-    return "CRC";
-  case ERR_NAK:
-    return "NAK";
-  case ERR_BAD_RESP:
-    return "BAD_RESP";
-  case ERR_PARSE:
-    return "PARSE";
-  case ERR_BUSY:
-    return "BUSY";
-  case ERR_TOO_LONG:
-    return "TOO_LONG";
-  default:
-    return "UNKNOWN";
+    case ERR_NONE:
+      return "NONE";
+    case ERR_TIMEOUT:
+      return "TIMEOUT";
+    case ERR_SHORT:
+      return "SHORT";
+    case ERR_CRC:
+      return "CRC";
+    case ERR_NAK:
+      return "NAK";
+    case ERR_BAD_RESP:
+      return "BAD_RESP";
+    case ERR_PARSE:
+      return "PARSE";
+    case ERR_BUSY:
+      return "BUSY";
+    case ERR_TOO_LONG:
+      return "TOO_LONG";
+    default:
+      return "UNKNOWN";
   }
 }
 // ═══════════════════════════════════════════════════════════════
@@ -259,15 +267,42 @@ bool VoltronicMAX::sendRawSetting(const char *cmd)
     return true;                         \
   } while (0)
 
-bool VoltronicMAX::queryProtocolID(char *out, size_t len) { VC_STR_QUERY(VC_QPI, VVB_QID); }
-bool VoltronicMAX::querySerialNumber(char *out, size_t len) { VC_STR_QUERY(VC_QID, VVB_QID); }
-bool VoltronicMAX::querySerialNumberLong(char *out, size_t len) { VC_STR_QUERY(VC_QSID, VVB_QSID); }
-bool VoltronicMAX::queryFirmware(char *out, size_t len) { VC_STR_QUERY(VC_QVFW, VVB_QVFW); }
-bool VoltronicMAX::queryFirmware2(char *out, size_t len) { VC_STR_QUERY(VC_QVFW3, VVB_QVFW3); }
-bool VoltronicMAX::queryBluetoothVersion(char *out, size_t len) { VC_STR_QUERY(VC_VERFW, VVB_VERFW); }
-bool VoltronicMAX::queryModelName(char *out, size_t len) { VC_STR_QUERY(VC_QMN, VVB_QMN); }
-bool VoltronicMAX::queryGeneralModelName(char *out, size_t len) { VC_STR_QUERY(VC_QGMN, VVB_QGMN); }
-bool VoltronicMAX::queryTime(char *out, size_t len) { VC_STR_QUERY(VC_QT, VVB_QT); }
+bool VoltronicMAX::queryProtocolID(char *out, size_t len)
+{
+  VC_STR_QUERY(VC_QPI, VVB_QID);
+}
+bool VoltronicMAX::querySerialNumber(char *out, size_t len)
+{
+  VC_STR_QUERY(VC_QID, VVB_QID);
+}
+bool VoltronicMAX::querySerialNumberLong(char *out, size_t len)
+{
+  VC_STR_QUERY(VC_QSID, VVB_QSID);
+}
+bool VoltronicMAX::queryFirmware(char *out, size_t len)
+{
+  VC_STR_QUERY(VC_QVFW, VVB_QVFW);
+}
+bool VoltronicMAX::queryFirmware2(char *out, size_t len)
+{
+  VC_STR_QUERY(VC_QVFW3, VVB_QVFW3);
+}
+bool VoltronicMAX::queryBluetoothVersion(char *out, size_t len)
+{
+  VC_STR_QUERY(VC_VERFW, VVB_VERFW);
+}
+bool VoltronicMAX::queryModelName(char *out, size_t len)
+{
+  VC_STR_QUERY(VC_QMN, VVB_QMN);
+}
+bool VoltronicMAX::queryGeneralModelName(char *out, size_t len)
+{
+  VC_STR_QUERY(VC_QGMN, VVB_QGMN);
+}
+bool VoltronicMAX::queryTime(char *out, size_t len)
+{
+  VC_STR_QUERY(VC_QT, VVB_QT);
+}
 
 #undef VC_STR_QUERY
 
@@ -284,7 +319,7 @@ bool VoltronicMAX::queryGeneralStatus()
     return false;
   }
   _validBits |= VVB_QPIGS;
-  battery.update(_qpigs); // ← جديد: يحدّث الحسابات
+  battery.update(_qpigs);  // ← جديد: يحدّث الحسابات
   return true;
 }
 
@@ -311,8 +346,8 @@ bool VoltronicMAX::queryRating()
     return false;
   }
   _validBits |= VVB_QPIRI;
-  smartCharger.update(*this, battery); // ← جديد
-  powerMode.update(*this, battery);    // ← جديد
+  smartCharger.update(*this, battery);  // ← جديد
+  powerMode.update(*this, battery);     // ← جديد
   return true;
 }
 
@@ -503,7 +538,10 @@ bool VoltronicMAX::clearFlag(char flag)
   return transact(cmd, true);
 }
 
-bool VoltronicMAX::resetDefaults() { return transact(VC_PF, true); }
+bool VoltronicMAX::resetDefaults()
+{
+  return transact(VC_PF, true);
+}
 
 bool VoltronicMAX::setMaxChargingCurrent(uint16_t a)
 {
@@ -601,8 +639,14 @@ bool VoltronicMAX::setParallelChargerPriority(uint8_t m, uint8_t p)
   snprintf(cmd, sizeof(cmd), "%s%u%02u", VC_PPCP, m, p);
   return transact(cmd, true);
 }
-bool VoltronicMAX::resetEnergy() { return transact(VC_RTEY, true); }
-bool VoltronicMAX::eraseLog() { return transact(VC_RTDL, true); }
+bool VoltronicMAX::resetEnergy()
+{
+  return transact(VC_RTEY, true);
+}
+bool VoltronicMAX::eraseLog()
+{
+  return transact(VC_RTDL, true);
+}
 
 bool VoltronicMAX::setBatteryEqualizationEnabled(bool en)
 {
@@ -689,26 +733,26 @@ uint16_t VoltronicMAX::getPollInterval(uint8_t idx) const
 {
   switch (idx)
   {
-  case 0:
-    return _pollSchedule.qpigsMs;
-  case 1:
-    return _pollSchedule.qpigs2Ms;
-  case 2:
-    return _pollSchedule.qpiriMs;
-  case 3:
-    return _pollSchedule.qmodMs;
-  case 4:
-    return _pollSchedule.qpiwsMs;
-  case 5:
-    return _pollSchedule.qflagMs;
-  case 6:
-    return _pollSchedule.qidMs;
-  case 7:
-    return _pollSchedule.qbeqiMs;
-  case 8:
-    return _pollSchedule.qbatcdMs;
-  default:
-    return 0;
+    case 0:
+      return _pollSchedule.qpigsMs;
+    case 1:
+      return _pollSchedule.qpigs2Ms;
+    case 2:
+      return _pollSchedule.qpiriMs;
+    case 3:
+      return _pollSchedule.qmodMs;
+    case 4:
+      return _pollSchedule.qpiwsMs;
+    case 5:
+      return _pollSchedule.qflagMs;
+    case 6:
+      return _pollSchedule.qidMs;
+    case 7:
+      return _pollSchedule.qbeqiMs;
+    case 8:
+      return _pollSchedule.qbatcdMs;
+    default:
+      return 0;
   }
 }
 
@@ -716,29 +760,29 @@ bool VoltronicMAX::execPollQuery(uint8_t idx)
 {
   switch (idx)
   {
-  case 0:
-    return queryGeneralStatus();
-  case 1:
-    return queryGeneralStatus2();
-  case 2:
-    return queryRating();
-  case 3:
-    return queryMode();
-  case 4:
-    return queryWarnings();
-  case 5:
-    return queryFlags();
-  case 6:
-  {
-    char buf[24];
-    return querySerialNumber(buf, sizeof(buf));
-  }
-  case 7:
-    return queryBatteryEqualization();
-  case 8:
-    return queryBatteryControl();
-  default:
-    return false;
+    case 0:
+      return queryGeneralStatus();
+    case 1:
+      return queryGeneralStatus2();
+    case 2:
+      return queryRating();
+    case 3:
+      return queryMode();
+    case 4:
+      return queryWarnings();
+    case 5:
+      return queryFlags();
+    case 6:
+    {
+      char buf[24];
+      return querySerialNumber(buf, sizeof(buf));
+    }
+    case 7:
+      return queryBatteryEqualization();
+    case 8:
+      return queryBatteryControl();
+    default:
+      return false;
   }
 }
 
@@ -881,9 +925,11 @@ static const char VHTML_P1[] PROGMEM =
     ".card{background:#fff;padding:14px;border-radius:10px;"
     "box-shadow:0 1px 6px rgba(0,0,0,.06);margin-bottom:12px}"
     ".filter{margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap}"
-    ".filter input{flex:1;min-width:180px;padding:7px 10px;border:1px solid #d1d5db;"
+    ".filter input{flex:1;min-width:180px;padding:7px 10px;border:1px solid "
+    "#d1d5db;"
     "border-radius:6px;font-size:.85rem;font-family:inherit}"
-    ".filter button{padding:7px 12px;border:0;background:#e5e7eb;cursor:pointer;"
+    ".filter button{padding:7px "
+    "12px;border:0;background:#e5e7eb;cursor:pointer;"
     "border-radius:6px;font-size:.8rem}"
     ".filter button.active{background:#2563eb;color:#fff}"
     ".cmd{display:grid;grid-template-columns:1fr auto auto;gap:8px;"
@@ -899,7 +945,8 @@ static const char VHTML_P1[] PROGMEM =
     "border-radius:5px;font-size:.78rem;cursor:pointer;font-weight:600}"
     ".cmd button:hover{background:#1d4ed8}"
     ".row{display:flex;gap:6px}.row input{flex:1;width:auto;padding:8px 10px;"
-    "border:1px solid #d1d5db;border-radius:6px;font-family:ui-monospace,monospace}"
+    "border:1px solid "
+    "#d1d5db;border-radius:6px;font-family:ui-monospace,monospace}"
     ".row button{padding:8px 16px;border:0;background:#2563eb;color:#fff;"
     "border-radius:6px;cursor:pointer;font-weight:600}"
     "#out{display:flex;flex-direction:column;gap:10px}"
@@ -938,7 +985,8 @@ static const char VHTML_P2[] PROGMEM =
     "<div class='card'>"
     "<h2>Commands</h2>"
     "<div class='filter'>"
-    "<input type='text' id='srch' placeholder='Filter commands…' oninput='renderCmds()'>"
+    "<input type='text' id='srch' placeholder='Filter commands…' "
+    "oninput='renderCmds()'>"
     "<button id='fAll' class='active' onclick='setFilter(0)'>All</button>"
     "<button id='fQ'   onclick='setFilter(1)'>Query</button>"
     "<button id='fS'   onclick='setFilter(2)'>Setting</button>"
@@ -951,9 +999,11 @@ static const char VHTML_P2[] PROGMEM =
     "<h2>Battery</h2>"
     "<div style='display:flex;flex-direction:column;gap:8px'>"
     "<label style='font-size:.8rem;color:#6b7280'>Type</label>"
-    "<select id='batType' style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
+    "<select id='batType' style='padding:6px;border:1px solid "
+    "#d1d5db;border-radius:5px'>"
     "<option>User</option><option>AGM</option><option>Flooded</option>"
-    "<option>Pylontech</option><option>LiFePO4 15S</option><option>LiFePO4 16S</option>"
+    "<option>Pylontech</option><option>LiFePO4 15S</option><option>LiFePO4 "
+    "16S</option>"
     "</select>"
     "<label style='font-size:.8rem;color:#6b7280'>Capacity (Ah)</label>"
     "<input type='number' id='batCap' value='100' min='10' max='2000' "
@@ -964,8 +1014,10 @@ static const char VHTML_P2[] PROGMEM =
     "<label style='font-size:.8rem;color:#6b7280'>Voltage Full (V)</label>"
     "<input type='number' id='batVFull' value='54.0' step='0.1' "
     "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
-    "<button onclick='saveBattery()' style='padding:8px;border:0;background:#16a34a;"
-    "color:#fff;border-radius:5px;cursor:pointer;font-weight:600'>Save Battery</button>"
+    "<button onclick='saveBattery()' "
+    "style='padding:8px;border:0;background:#16a34a;"
+    "color:#fff;border-radius:5px;cursor:pointer;font-weight:600'>Save "
+    "Battery</button>"
     "</div></div>"
 
     // ═══════════════ Smart Charger ═══════════════
@@ -973,7 +1025,8 @@ static const char VHTML_P2[] PROGMEM =
     "<h2>Smart Charger</h2>"
     "<div style='display:flex;flex-direction:column;gap:8px'>"
     "<label style='font-size:.8rem;color:#6b7280'>Mode</label>"
-    "<select id='scMode' style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
+    "<select id='scMode' style='padding:6px;border:1px solid "
+    "#d1d5db;border-radius:5px'>"
     "<option value='0'>Disabled</option>"
     "<option value='1'>Standard (Step Down)</option>"
     "<option value='2'>Fast (Float Only)</option>"
@@ -993,8 +1046,10 @@ static const char VHTML_P2[] PROGMEM =
     "<label style='font-size:.8rem;color:#6b7280'>Temp Protect (°C)</label>"
     "<input type='number' id='scTemp' value='70' min='50' max='90' "
     "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
-    "<button onclick='saveSmartCharger()' style='padding:8px;border:0;background:#16a34a;"
-    "color:#fff;border-radius:5px;cursor:pointer;font-weight:600'>Save Smart Charger</button>"
+    "<button onclick='saveSmartCharger()' "
+    "style='padding:8px;border:0;background:#16a34a;"
+    "color:#fff;border-radius:5px;cursor:pointer;font-weight:600'>Save Smart "
+    "Charger</button>"
     "</div></div>"
 
     // ═══════════════ Power Mode Thresholds ═══════════════
@@ -1002,23 +1057,28 @@ static const char VHTML_P2[] PROGMEM =
     "<h2>Power Mode Thresholds</h2>"
     "<div style='display:flex;flex-direction:column;gap:8px'>"
 
-    "<label style='font-size:.8rem;color:#6b7280'>⚠️ SOC Emergency Mode (%)</label>"
+    "<label style='font-size:.8rem;color:#6b7280'>⚠️ SOC Emergency Mode "
+    "(%)</label>"
     "<input type='number' id='pmSocEm' value='10' min='5' max='40' "
     "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
 
-    "<label style='font-size:.8rem;color:#6b7280'>🔋 SOC Power Saving Mode (%)</label>"
+    "<label style='font-size:.8rem;color:#6b7280'>🔋 SOC Power Saving Mode "
+    "(%)</label>"
     "<input type='number' id='pmSocPs' value='25' min='10' max='50' "
     "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
 
-    "<label style='font-size:.8rem;color:#6b7280'>🔌 SOC Recover (Exit Lock) (%)</label>"
+    "<label style='font-size:.8rem;color:#6b7280'>🔌 SOC Recover (Exit Lock) "
+    "(%)</label>"
     "<input type='number' id='pmSocRec' value='30' min='20' max='60' "
     "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
 
-    "<label style='font-size:.8rem;color:#6b7280'>☀️ SOC Surplus Mode (%)</label>"
+    "<label style='font-size:.8rem;color:#6b7280'>☀️ SOC Surplus Mode "
+    "(%)</label>"
     "<input type='number' id='pmSocSurp' value='88' min='70' max='99' "
     "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
 
-    "<label style='font-size:.8rem;color:#6b7280'>⚡ Grid Min Voltage (V)</label>"
+    "<label style='font-size:.8rem;color:#6b7280'>⚡ Grid Min Voltage "
+    "(V)</label>"
     "<input type='number' id='pmGridV' value='150' min='100' max='220' "
     "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
 
@@ -1030,7 +1090,8 @@ static const char VHTML_P2[] PROGMEM =
     // ═══════════════ Live Status ═══════════════
     "<div class='card'>"
     "<h2>Live Status</h2>"
-    "<div id='statusBox' style='font-size:.85rem;line-height:1.9'>loading…</div>"
+    "<div id='statusBox' "
+    "style='font-size:.85rem;line-height:1.9'>loading…</div>"
     "</div>"
 
     // ═══════════════ Raw command ═══════════════
@@ -1045,7 +1106,8 @@ static const char VHTML_P2[] PROGMEM =
     // ═══════════════ Output ═══════════════
     "<div class='card'>"
     "<h2>Output</h2>"
-    "<div id='out'><div style='color:#9ca3af;font-style:italic'>No output yet…</div></div>"
+    "<div id='out'><div style='color:#9ca3af;font-style:italic'>No output "
+    "yet…</div></div>"
     "</div>"
 
     "<div class='foot'>Kitronic &middot; Voltronic MAX Web Console</div>"
@@ -1057,7 +1119,9 @@ static const char VHTML_P2[] PROGMEM =
     "let CMDS=[];let FILTER=0;"
     "const BASE=(document.querySelector('base')||{}).href||'/';"
     "const $=id=>document.getElementById(id);"
-    "const esc=s=>String(s).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));"
+    "const "
+    "esc=s=>String(s).replace(/[<>&]/"
+    "g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));"
 
     // ─── Banner message ───
     "function showMsg(text, ok){"
@@ -1078,25 +1142,30 @@ static const char VHTML_P2[] PROGMEM =
     "const r=await fetch(BASE+'api/commands');"
     "CMDS=await r.json();"
     "renderCmds();"
-    "}catch(e){$('cmds').innerHTML='<span style=\"color:#c00\">load error: '+esc(e.message)+'</span>';}"
+    "}catch(e){$('cmds').innerHTML='<span style=\"color:#c00\">load error: "
+    "'+esc(e.message)+'</span>';}"
     "}"
 
     // ─── Render list ───
     "function setFilter(f){FILTER=f;"
-    "['fAll','fQ','fS'].forEach((id,i)=>$(id).classList.toggle('active',i===f));"
+    "['fAll','fQ','fS'].forEach((id,i)=>$(id).classList.toggle('active',i===f))"
+    ";"
     "renderCmds();}"
     "function renderCmds(){"
     "const q=($('srch').value||'').toLowerCase();"
     "const list=CMDS.filter(c=>{"
     "if(FILTER===1&&c.type!==0)return false;"
     "if(FILTER===2&&c.type!==1)return false;"
-    "if(q&&!(c.label.toLowerCase().includes(q)||c.cmd.toLowerCase().includes(q)))return false;"
+    "if(q&&!(c.label.toLowerCase().includes(q)||c.cmd.toLowerCase().includes(q)"
+    "))return false;"
     "return true;"
     "});"
-    "if(!list.length){$('cmds').innerHTML='<div style=\"color:#9ca3af;padding:10px\">No matches.</div>';return;}"
+    "if(!list.length){$('cmds').innerHTML='<div "
+    "style=\"color:#9ca3af;padding:10px\">No matches.</div>';return;}"
     "$('cmds').innerHTML=list.map((c,i)=>{"
     "const origIdx=CMDS.indexOf(c);"
-    "const inp=c.type===1?'<input type=\"text\" id=\"p'+origIdx+'\" value=\"'+esc(c.def||'')+'\">':'<span></span>';"
+    "const inp=c.type===1?'<input type=\"text\" id=\"p'+origIdx+'\" "
+    "value=\"'+esc(c.def||'')+'\">':'<span></span>';"
     "return '<div class=\"cmd\"><div class=\"info\"><b>'+esc(c.label)+'</b>'"
     "+'<code>'+esc(c.cmd)+'</code></div>'+inp"
     "+'<button onclick=\"run('+origIdx+')\">Send</button></div>';"
@@ -1113,7 +1182,9 @@ static const char VHTML_P2[] PROGMEM =
     "send(sp[0],sp[1]||'',isSet?1:0);}"
 
     "async function send(cmd,param,type){"
-    "const body='cmd='+encodeURIComponent(cmd)+'&param='+encodeURIComponent(param||'')+'&type='+(type||0);"
+    "const "
+    "body='cmd='+encodeURIComponent(cmd)+'&param='+encodeURIComponent(param||''"
+    ")+'&type='+(type||0);"
     "try{"
     "const r=await fetch(BASE+'api/cmd',{method:'POST',"
     "headers:{'Content-Type':'application/x-www-form-urlencoded'},body});"
@@ -1139,7 +1210,8 @@ static const char VHTML_P2[] PROGMEM =
     "const MODES={P:'Power On',S:'Standby',L:'Line',B:'Battery',"
     "F:'Fault',H:'Power Saving',D:'Shutdown'};"
     "const BAT_TYPES=['AGM','Flooded','User','Pylontech'];"
-    "const OUT_PRIO=['Utility→Solar→Batt','Solar→Utility→Batt','Solar→Batt→Utility'];"
+    "const "
+    "OUT_PRIO=['Utility→Solar→Batt','Solar→Utility→Batt','Solar→Batt→Utility'];"
     "const CHG_PRIO={1:'Solar First',2:'Solar + Utility',3:'Only Solar'};"
     "const GRID_RANGE=['Appliance','UPS'];"
 
@@ -1152,7 +1224,8 @@ static const char VHTML_P2[] PROGMEM =
     "flags.push(['Bit 7: SBU Priority Version', b(7)?'نعم':'لا']);"
     "flags.push(['Bit 6: Configuration Changed', b(6)?'نعم':'لا']);"
     "flags.push(['Bit 5: SCC Firmware Updated', b(5)?'نعم':'لا']);"
-    "flags.push(['Bit 4: الحمل (Load ON)', b(4)?'🟢 يعمل':'⚫ متوقف']);"
+    "flags.push(['Bit 4: الحمل (Load ON)', b(4)?'🟢 يعمل':'⚫ "
+    "متوقف']);"
     "flags.push(['Bit 3: Battery Steady', b(3)?'نعم':'لا']);"
     "const code = (b(2)?4:0) | (b(1)?2:0) | (b(0)?1:0);"
     "const chgNames = ["
@@ -1168,7 +1241,8 @@ static const char VHTML_P2[] PROGMEM =
     "flags.push(['Charging Status Code', code]);"
     "flags.push(['Charging Status', chgNames[code]||'غير معروف']);"
     "flags.push(['Raw Binary', s]);"
-    "flags.push(['Raw Hex', '0x'+parseInt(s,2).toString(16).toUpperCase().padStart(2,'0')]);"
+    "flags.push(['Raw Hex', "
+    "'0x'+parseInt(s,2).toString(16).toUpperCase().padStart(2,'0')]);"
     "return flags;"
     "}"
 
@@ -1201,19 +1275,26 @@ static const char VHTML_P2[] PROGMEM =
     "return result;"
     "}"
 
-    "function parseQPIGS2(resp){const t=tok(resp);if(t.length<2)return null;return ["
+    "function parseQPIGS2(resp){const t=tok(resp);if(t.length<2)return "
+    "null;return ["
     "['PV2 Input Current',t[0]+' A'],['PV2 Input Voltage',t[1]+' V'],"
     "['PV2 Charging Power',(t[2]||'0')+' W']];}"
 
-    "function parseQPIRI(resp){const t=tok(resp);if(t.length<17)return null;return ["
+    "function parseQPIRI(resp){const t=tok(resp);if(t.length<17)return "
+    "null;return ["
     "['Grid Rating Voltage',t[0]+' V'],['Grid Rating Current',t[1]+' A'],"
-    "['AC Output Rating Voltage',t[2]+' V'],['AC Output Rating Frequency',t[3]+' Hz'],"
-    "['AC Output Rating Current',t[4]+' A'],['AC Output Apparent Power',t[5]+' VA'],"
+    "['AC Output Rating Voltage',t[2]+' V'],['AC Output Rating "
+    "Frequency',t[3]+' Hz'],"
+    "['AC Output Rating Current',t[4]+' A'],['AC Output Apparent Power',t[5]+' "
+    "VA'],"
     "['AC Output Active Power',t[6]+' W'],['Battery Rating Voltage',t[7]+' V'],"
-    "['Battery Recharge Voltage',t[8]+' V'],['Battery Under Voltage',t[9]+' V'],"
+    "['Battery Recharge Voltage',t[8]+' V'],['Battery Under Voltage',t[9]+' "
+    "V'],"
     "['Battery Bulk Voltage',t[10]+' V'],['Battery Float Voltage',t[11]+' V'],"
-    "['Battery Type',BAT_TYPES[+t[12]]||t[12]],['Max AC Charging Current',t[13]+' A'],"
-    "['Max Charging Current',t[14]+' A'],['Input Voltage Range',GRID_RANGE[+t[15]]||t[15]],"
+    "['Battery Type',BAT_TYPES[+t[12]]||t[12]],['Max AC Charging "
+    "Current',t[13]+' A'],"
+    "['Max Charging Current',t[14]+' A'],['Input Voltage "
+    "Range',GRID_RANGE[+t[15]]||t[15]],"
     "['Output Source Priority',OUT_PRIO[+t[16]]||t[16]],"
     "['Charger Source Priority',CHG_PRIO[+t[17]]||t[17]],"
     "['Parallel Max Num',t[18]||'—'],['Machine Type',t[19]||'—'],"
@@ -1226,7 +1307,8 @@ static const char VHTML_P2[] PROGMEM =
     "function parseQFLAG(resp){const s=clean(resp);"
     "const kv={'a':'Buzzer','b':'Overload Bypass','d':'Solar Feed to Grid',"
     "'j':'Power Saving','k':'LCD Default','u':'Overload Restart',"
-    "'v':'Over-temp Restart','x':'Backlight','y':'Alarm Primary','z':'Fault Code Record'};"
+    "'v':'Over-temp Restart','x':'Backlight','y':'Alarm Primary','z':'Fault "
+    "Code Record'};"
     "const r=[['Raw',s]];"
     "for(let i=0;i<s.length-1;i++){"
     "const p=s[i],c=s[i+1];"
@@ -1234,10 +1316,14 @@ static const char VHTML_P2[] PROGMEM =
     "}return r;}"
 
     "function parseQPIWS(resp){const s=clean(resp);"
-    "const names=['PV Loss','Inverter Fault','Bus Over','Bus Under','Bus Soft Fail',"
-    "'Line Fail','OPV Short','Inv Voltage Low','Inv Voltage High','Over Temperature',"
-    "'Fan Locked','Batt Voltage High','Batt Low Alarm','(reserved 13)','Batt Under Shutdown',"
-    "'Batt Derating','Overload','EEPROM Fault','Inv Over Current','Inv Soft Fail',"
+    "const names=['PV Loss','Inverter Fault','Bus Over','Bus Under','Bus Soft "
+    "Fail',"
+    "'Line Fail','OPV Short','Inv Voltage Low','Inv Voltage High','Over "
+    "Temperature',"
+    "'Fan Locked','Batt Voltage High','Batt Low Alarm','(reserved 13)','Batt "
+    "Under Shutdown',"
+    "'Batt Derating','Overload','EEPROM Fault','Inv Over Current','Inv Soft "
+    "Fail',"
     "'Self-Test Fail','OP DC Voltage Over','Batt Open','Current Sensor Fail'];"
     "const r=[['Raw',s]];let any=false;"
     "for(let i=0;i<Math.min(s.length,32);i++){"
@@ -1250,8 +1336,10 @@ static const char VHTML_P2[] PROGMEM =
     "return [['Date','20'+s.substr(0,2)+'-'+s.substr(2,2)+'-'+s.substr(4,2)],"
     "['Time',s.substr(6,2)+':'+s.substr(8,2)+':'+s.substr(10,2)],['Raw',s]];}"
 
-    "function parseQBEQI(resp){const t=tok(resp);if(t.length<6)return null;return ["
-    "['Enabled',t[0]==='1'?'Yes':'No'],['Time (min)',t[1]],['Period (days)',t[2]],"
+    "function parseQBEQI(resp){const t=tok(resp);if(t.length<6)return "
+    "null;return ["
+    "['Enabled',t[0]==='1'?'Yes':'No'],['Time (min)',t[1]],['Period "
+    "(days)',t[2]],"
     "['Voltage',t[3]+' V'],['Over Time (min)',t[4]],['Max Time (min)',t[5]],"
     "['Active Now',t[6]||'—']];}"
 
@@ -1266,7 +1354,8 @@ static const char VHTML_P2[] PROGMEM =
     "function parseQMCHGCR(resp){const t=tok(resp);"
     "return [['Count',t.length],['Values',t.join(', ')]];}"
 
-    "function parseQDI(resp){const t=tok(resp);if(t.length<12)return null;return ["
+    "function parseQDI(resp){const t=tok(resp);if(t.length<12)return "
+    "null;return ["
     "['AC Output Voltage',t[0]+' V'],['AC Output Frequency',t[1]+' Hz'],"
     "['Max AC Charging Current',t[2]+' A'],['Battery Under Voltage',t[3]+' V'],"
     "['Battery Float Voltage',t[4]+' V'],['Battery Bulk Voltage',t[5]+' V'],"
@@ -1283,7 +1372,8 @@ static const char VHTML_P2[] PROGMEM =
     "['AC Output Voltage',t[7]+' V'],['AC Output Freq',t[8]+' Hz'],"
     "['Load',t[11]+' %']];}"
 
-    "function parseQLED(resp){const t=tok(resp);return [['Raw','('+t.join(' ')+')']];}"
+    "function parseQLED(resp){const t=tok(resp);return [['Raw','('+t.join(' "
+    "')+')']];}"
     "function parseQOPPT(resp){return [['Time Order (24h)',clean(resp)]];}"
 
     "function fmtResponse(cmd,resp){"
@@ -1319,15 +1409,18 @@ static const char VHTML_P2[] PROGMEM =
     "let html='<div class=\"resp '+(ok?'ok':'err')+'\">';"
     "html+='<div class=\"resp-head\">';"
     "html+='<span class=\"resp-cmd\">'+esc(fullCmd)+'</span>';"
-    "html+='<span class=\"badge '+(ok?'ok':'err')+'\">'+(ok?'OK':'ERR')+'</span>';"
+    "html+='<span class=\"badge "
+    "'+(ok?'ok':'err')+'\">'+(ok?'OK':'ERR')+'</span>';"
     "if(j.error)html+='<span class=\"badge err\">'+esc(j.error)+'</span>';"
     "html+='<span class=\"resp-time\">'+t+'</span>';"
     "html+='</div>';"
     "if(parsed&&parsed.length){"
     "html+='<table class=\"kv\">';"
-    "for(const kv of parsed){html+='<tr><td>'+esc(kv[0])+'</td><td>'+esc(kv[1])+'</td></tr>';}"
+    "for(const kv of "
+    "parsed){html+='<tr><td>'+esc(kv[0])+'</td><td>'+esc(kv[1])+'</td></tr>';}"
     "html+='</table>';}"
-    "if(resp){html+='<div class=\"raw\"><div class=\"raw-label\">RAW</div>'+esc(resp)+'</div>';}"
+    "if(resp){html+='<div class=\"raw\"><div "
+    "class=\"raw-label\">RAW</div>'+esc(resp)+'</div>';}"
     "html+='</div>';"
     "out.insertAdjacentHTML('afterbegin',html);"
     "while(out.children.length>20)out.removeChild(out.lastChild);"
@@ -1343,7 +1436,8 @@ static const char VHTML_P2[] PROGMEM =
     "const r=await fetch(BASE+'api/battery',{method:'POST',"
     "headers:{'Content-Type':'application/x-www-form-urlencoded'},body});"
     "const j=await r.json();"
-    "showMsg(j.ok?('Battery saved ('+j.cap+' Ah)'):('Error: '+(j.error||'failed')), j.ok);"
+    "showMsg(j.ok?('Battery saved ('+j.cap+' Ah)'):('Error: "
+    "'+(j.error||'failed')), j.ok);"
     "}catch(e){showMsg('Error: '+e.message, false);}"
     "}"
 
@@ -1446,27 +1540,27 @@ static size_t voltJsonEscape(char *dst, size_t dstLen, const char *src)
     uint8_t c = (uint8_t)*src++;
     switch (c)
     {
-    case '"':
-      dst[w++] = '\\';
-      dst[w++] = '"';
-      break;
-    case '\\':
-      dst[w++] = '\\';
-      dst[w++] = '\\';
-      break;
-    case '\n':
-      dst[w++] = '\\';
-      dst[w++] = 'n';
-      break;
-    case '\r':
-      dst[w++] = '\\';
-      dst[w++] = 'r';
-      break;
-    default:
-      if (c < 0x20)
-        w += snprintf(dst + w, dstLen - w, "\\u%04x", c);
-      else
-        dst[w++] = (char)c;
+      case '"':
+        dst[w++] = '\\';
+        dst[w++] = '"';
+        break;
+      case '\\':
+        dst[w++] = '\\';
+        dst[w++] = '\\';
+        break;
+      case '\n':
+        dst[w++] = '\\';
+        dst[w++] = 'n';
+        break;
+      case '\r':
+        dst[w++] = '\\';
+        dst[w++] = 'r';
+        break;
+      default:
+        if (c < 0x20)
+          w += snprintf(dst + w, dstLen - w, "\\u%04x", c);
+        else
+          dst[w++] = (char)c;
     }
   }
   dst[w] = '\0';
@@ -1489,8 +1583,7 @@ void VoltronicMAX::attachWebServer(VoltWebServer *server)
   Serial.println(F("[Voltronic] Web registered (no auth)"));
 }
 
-void VoltronicMAX::attachWebServer(VoltWebServer *server,
-                                   const char *user, const char *pass)
+void VoltronicMAX::attachWebServer(VoltWebServer *server, const char *user, const char *pass)
 {
   if (!user || !pass || !*user || !*pass)
   {
@@ -1563,9 +1656,14 @@ void VoltronicMAX::_webHandleList()
     VoltWebCmdEntry e;
     memcpy_P(&e, &VWEB_CMDS[i], sizeof(e));
     char row[200];
-    snprintf_P(row, sizeof(row),
+    snprintf_P(row,
+               sizeof(row),
                PSTR("%s{\"cmd\":\"%s\",\"label\":\"%s\",\"type\":%u,\"def\":\"%s\"}"),
-               (i ? "," : ""), e.cmd, e.label, (unsigned)e.type, e.defParam);
+               (i ? "," : ""),
+               e.cmd,
+               e.label,
+               (unsigned)e.type,
+               e.defParam);
     _webServer->sendContent(row);
   }
   _webServer->sendContent(F("]"));
@@ -1579,8 +1677,7 @@ void VoltronicMAX::_webHandleExecute()
     return;
   if (!_webServer->hasArg("cmd"))
   {
-    _webServer->send_P(400, PSTR("application/json"),
-                       PSTR("{\"error\":\"missing cmd\"}"));
+    _webServer->send_P(400, PSTR("application/json"), PSTR("{\"error\":\"missing cmd\"}"));
     return;
   }
   String cmd = _webServer->arg("cmd");
@@ -1598,9 +1695,13 @@ void VoltronicMAX::_webHandleExecute()
   voltJsonEscape(esc, sizeof(esc), raw ? raw : "");
 
   static char out[768];
-  snprintf_P(out, sizeof(out),
+  snprintf_P(out,
+             sizeof(out),
              PSTR("{\"ok\":%s,\"cmd\":\"%s\",\"response\":\"%s\",\"error\":\"%s\"}"),
-             ok ? "true" : "false", full.c_str(), esc, ok ? "" : lastErrorName());
+             ok ? "true" : "false",
+             full.c_str(),
+             esc,
+             ok ? "" : lastErrorName());
 
   _webServer->send(200, "application/json", out);
 }
@@ -1623,13 +1724,14 @@ void VoltronicMAX::_webHandleBattery()
   storage.save(*this);
 
   char buf[128];
-  snprintf_P(buf, sizeof(buf),
+  snprintf_P(buf,
+             sizeof(buf),
              PSTR("{\"ok\":true,\"cap\":%.0f,\"type\":\"%s\"}"),
-             battery.capacityAh(), battery.typeName());
+             battery.capacityAh(),
+             battery.typeName());
   _webServer->send(200, "application/json", buf);
 
-  VLOG("[Web] Battery saved: %.0fAh, type=%s\n",
-       battery.capacityAh(), battery.typeName());
+  VLOG("[Web] Battery saved: %.0fAh, type=%s\n", battery.capacityAh(), battery.typeName());
 }
 
 // ─── POST /api/smartcharger ───
@@ -1668,23 +1770,37 @@ void VoltronicMAX::_webHandleStatus()
     return;
 
   char buf[768];
-  snprintf_P(buf, sizeof(buf),
-             PSTR("{\"batType\":\"%s\",\"batCap\":%.0f,\"batVEmpty\":%.1f,\"batVFull\":%.1f,"
-                  "\"scMode\":%u,\"scAC\":%u,\"scTotal\":%u,\"scFloatAC\":%u,\"scFloatTotal\":%u,"
-                  "\"scTemp\":%u,\"soc\":%.1f,\"soh\":%.1f,\"voltage\":%.2f,\"netPower\":%.0f,"
+  snprintf_P(buf,
+             sizeof(buf),
+             PSTR("{\"batType\":\"%s\",\"batCap\":%.0f,\"batVEmpty\":%.1f,"
+                  "\"batVFull\":%.1f,"
+                  "\"scMode\":%u,\"scAC\":%u,\"scTotal\":%u,\"scFloatAC\":%u,"
+                  "\"scFloatTotal\":%u,"
+                  "\"scTemp\":%u,\"soc\":%.1f,\"soh\":%.1f,\"voltage\":%.2f,"
+                  "\"netPower\":%.0f,"
                   "\"remKWh\":%.3f,\"stage\":\"%s\",\"status\":\"%s\","
                   "\"powerMode\":\"%s\",\"saves\":%u,"
-                  "\"pmEm\":%.0f,\"pmPs\":%.0f,\"pmRec\":%.0f,\"pmSurp\":%.0f,\"pmGridV\":%.0f}"),
-             battery.typeName(), battery.capacityAh(),
-             battery.voltageEmpty(), battery.voltageFull(),
+                  "\"pmEm\":%.0f,\"pmPs\":%.0f,\"pmRec\":%.0f,\"pmSurp\":%.0f,"
+                  "\"pmGridV\":%.0f}"),
+             battery.typeName(),
+             battery.capacityAh(),
+             battery.voltageEmpty(),
+             battery.voltageFull(),
              (unsigned)smartCharger.mode(),
-             smartCharger.targetAC(), smartCharger.targetTotal(),
-             smartCharger.floatAC(), smartCharger.floatTotal(),
+             smartCharger.targetAC(),
+             smartCharger.targetTotal(),
+             smartCharger.floatAC(),
+             smartCharger.floatTotal(),
              smartCharger.tempProtectC(),
-             battery.soc(), battery.soh(), battery.voltage(),
-             battery.netPower(), battery.remainingKWh(),
-             smartCharger.stage(), smartCharger.status(),
-             powerMode.modeNameEn(), storage.saves(),
+             battery.soc(),
+             battery.soh(),
+             battery.voltage(),
+             battery.netPower(),
+             battery.remainingKWh(),
+             smartCharger.stage(),
+             smartCharger.status(),
+             powerMode.modeNameEn(),
+             storage.saves(),
              powerMode.socEmergency(),
              powerMode.socPowerSaving(),
              powerMode.socRecover(),
@@ -1730,22 +1846,50 @@ void VoltronicMAX::_webRegisterRoutes()
   snprintf_P(pSt, sizeof(pSt), PSTR("%s/api/status"), _webPrefix);
   snprintf_P(pPM, sizeof(pPM), PSTR("%s/api/powermode"), _webPrefix);
 
-  _webServer->on(pRoot, HTTP_GET, [this]()
-                 { _webHandlePage(); });
-  _webServer->on(pList, HTTP_GET, [this]()
-                 { _webHandleList(); });
-  _webServer->on(pCmd, HTTP_POST, [this]()
-                 { _webHandleExecute(); });
-  _webServer->on(pBat, HTTP_POST, [this]()
-                 { _webHandleBattery(); });
-  _webServer->on(pSC, HTTP_POST, [this]()
-                 { _webHandleSmartCharger(); });
-  _webServer->on(pSt, HTTP_GET, [this]()
-                 { _webHandleStatus(); });
-  _webServer->on(pPM, HTTP_POST, [this]()
-                 { _webHandlePowerMode(); });
+  _webServer->on(pRoot,
+                 HTTP_GET,
+                 [this]()
+                 {
+                   _webHandlePage();
+                 });
+  _webServer->on(pList,
+                 HTTP_GET,
+                 [this]()
+                 {
+                   _webHandleList();
+                 });
+  _webServer->on(pCmd,
+                 HTTP_POST,
+                 [this]()
+                 {
+                   _webHandleExecute();
+                 });
+  _webServer->on(pBat,
+                 HTTP_POST,
+                 [this]()
+                 {
+                   _webHandleBattery();
+                 });
+  _webServer->on(pSC,
+                 HTTP_POST,
+                 [this]()
+                 {
+                   _webHandleSmartCharger();
+                 });
+  _webServer->on(pSt,
+                 HTTP_GET,
+                 [this]()
+                 {
+                   _webHandleStatus();
+                 });
+  _webServer->on(pPM,
+                 HTTP_POST,
+                 [this]()
+                 {
+                   _webHandlePowerMode();
+                 });
 
   VLOG("[Voltronic] Web routes at \"%s\"\n", _webPrefix);
 }
 
-#endif // VOLTRONIC_USE_WEB
+#endif  // VOLTRONIC_USE_WEB

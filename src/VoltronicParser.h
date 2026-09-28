@@ -4,7 +4,7 @@
 
 class VoltronicParser
 {
-public:
+ public:
   // ═══════════════════════════════════════════════════════════
   //  Helpers
   // ═══════════════════════════════════════════════════════════
@@ -16,10 +16,10 @@ public:
   // ═══════════════════════════════════════════════════════════
   //  Numeric parsers
   // ═══════════════════════════════════════════════════════════
-  static uint16_t strToU16x10(const char *s);  // "230.1" → 2301
-  static uint16_t strToU16x100(const char *s); // "52.00" → 5200
-  static uint16_t strToU16(const char *s);     // "1234"  → 1234
-  static uint8_t strToU8(const char *s);       // "12"    → 12
+  static uint16_t strToU16x10(const char *s);   // "230.1" → 2301
+  static uint16_t strToU16x100(const char *s);  // "52.00" → 5200
+  static uint16_t strToU16(const char *s);      // "1234"  → 1234
+  static uint8_t strToU8(const char *s);        // "12"    → 12
 
   // ═══════════════════════════════════════════════════════════
   //  Inquiry parsers
@@ -28,8 +28,9 @@ public:
   static bool parseQPIGS2(const char *payload, QPIGS2Data &out);
   static bool parseQPIRI(const char *payload, QPIRIData &out);
   static bool parseQMOD(const char *payload, char &modeOut);
-  static bool parseQPIWS(const char *payload, uint64_t &warningsOut); // ✅ uint64
-  static bool parseQFLAG(const char *payload, QFLAGData &out);        // ✅ + raw
+  static bool parseQPIWS(const char *payload,
+                         uint64_t &warningsOut);                // ✅ uint64
+  static bool parseQFLAG(const char *payload, QFLAGData &out);  // ✅ + raw
   static bool parseQPGSn(const char *payload, ParallelInfo &out);
   static bool parseQBEQI(const char *payload, BatteryEqualizationInfo &out);
   static bool parseQLED(const char *payload, LedInfo &out);

@@ -8,46 +8,45 @@
 
 // ─── Buffer sizes ───
 #ifndef VOLTRONIC_RESP_BUF_SIZE
-#define VOLTRONIC_RESP_BUF_SIZE 160 // أطول رد PI30 ~ 120 بايت
+#  define VOLTRONIC_RESP_BUF_SIZE 160  // أطول رد PI30 ~ 120 بايت
 #endif
 
 #ifndef VOLTRONIC_CMD_BUF_SIZE
-#define VOLTRONIC_CMD_BUF_SIZE 32 // DAT يحتاج 17، مع هامش آمن
+#  define VOLTRONIC_CMD_BUF_SIZE 32  // DAT يحتاج 17، مع هامش آمن
 #endif
 
 // ─── Retries ───
 #ifndef VOLTRONIC_MAX_RETRIES
-#define VOLTRONIC_MAX_RETRIES 2
+#  define VOLTRONIC_MAX_RETRIES 2
 #endif
 
 // ─── Serial defaults ───
 #ifndef VOLTRONIC_DEFAULT_BAUD
-#define VOLTRONIC_DEFAULT_BAUD 2400
+#  define VOLTRONIC_DEFAULT_BAUD 2400
 #endif
 
 #ifndef VOLTRONIC_DEFAULT_TIMEOUT_MS
-#define VOLTRONIC_DEFAULT_TIMEOUT_MS 800
+#  define VOLTRONIC_DEFAULT_TIMEOUT_MS 800
 #endif
 
 // ─── Behavior flags (compile-time defaults) ───
 #ifndef VOLTRONIC_CRC_ESCAPE
-#define VOLTRONIC_CRC_ESCAPE 1
+#  define VOLTRONIC_CRC_ESCAPE 1
 #endif
 
 #ifndef VOLTRONIC_FILTER_PRINTABLE
-#define VOLTRONIC_FILTER_PRINTABLE 1
+#  define VOLTRONIC_FILTER_PRINTABLE 1
 #endif
 
 #ifndef VOLTRONIC_YIELD_IN_READ
-#define VOLTRONIC_YIELD_IN_READ 1
+#  define VOLTRONIC_YIELD_IN_READ 1
 #endif
 
 // ═══════════════════════════════════════════════════════════════
 //  Runtime configuration
 //
-//  ⚠️ ملاحظة مهمة: المكتبة لا تهيّئ Serial تلقائياً لأن
-//  Stream مجردة (abstract) وما فيها begin().
-//  المستخدم لازم:
+//  ⚠️ ملاحظة مهمة: المكتبة لا تهيّئ Serial تلقائياً
+//  لأن Stream مجردة (abstract) وما فيها begin(). المستخدم لازم:
 //    SoftwareSerial invSerial(rx, tx);
 //    invSerial.begin(cfg.baud);
 //    inverter.begin(cfg);
@@ -78,7 +77,9 @@ struct VoltronicConfig
   VoltronicConfig() = default;
 
   VoltronicConfig(uint32_t baudRate, uint16_t timeoutMs, uint8_t retryCount)
-      : baud(baudRate), responseTimeoutMs(timeoutMs), retries(retryCount)
+    : baud(baudRate)
+    , responseTimeoutMs(timeoutMs)
+    , retries(retryCount)
   {
   }
 };
@@ -89,13 +90,13 @@ struct VoltronicConfig
 // ═══════════════════════════════════════════════════════════════
 struct VoltronicPollSchedule
 {
-  uint16_t qpigsMs = 2000;  // QPIGS
-  uint16_t qpigs2Ms = 2000; // QPIGS2
-  uint16_t qpiriMs = 60000; // QPIRI
-  uint16_t qmodMs = 5000;   // QMOD
-  uint16_t qpiwsMs = 30000; // QPIWS
-  uint16_t qflagMs = 0;     // QFLAG  (معطّل افتراضياً)
-  uint16_t qidMs = 0;       // QID    (معطّل افتراضياً)
-  uint16_t qbeqiMs = 0;     // QBEQI  (معطّل افتراضياً)
-  uint16_t qbatcdMs = 0;    // QBATCD (معطّل افتراضياً)
+  uint16_t qpigsMs = 2000;   // QPIGS
+  uint16_t qpigs2Ms = 2000;  // QPIGS2
+  uint16_t qpiriMs = 60000;  // QPIRI
+  uint16_t qmodMs = 5000;    // QMOD
+  uint16_t qpiwsMs = 30000;  // QPIWS
+  uint16_t qflagMs = 0;      // QFLAG  (معطّل افتراضياً)
+  uint16_t qidMs = 0;        // QID    (معطّل افتراضياً)
+  uint16_t qbeqiMs = 0;      // QBEQI  (معطّل افتراضياً)
+  uint16_t qbatcdMs = 0;     // QBATCD (معطّل افتراضياً)
 };

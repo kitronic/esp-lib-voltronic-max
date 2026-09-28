@@ -88,14 +88,14 @@ const char *const VoltronicLang::TABLE_EN[] = {
     "Locked",
     "Unlocked",
     // Charging status codes
-    "No Charge",      // 0
-    "Solar Charging", // 1
-    "AC Charging",    // 2
-    "Solar + AC",     // 3
-    "Float",          // 4
-    "Equalization",   // 5
-    "Reserved",       // 6
-    "Float/Timer",    // 7
+    "No Charge",       // 0
+    "Solar Charging",  // 1
+    "AC Charging",     // 2
+    "Solar + AC",      // 3
+    "Float",           // 4
+    "Equalization",    // 5
+    "Reserved",        // 6
+    "Float/Timer",     // 7
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -184,16 +184,16 @@ const char *const VoltronicLang::TABLE_AR[] = {
     "سليم",
     "خطأ",
     "مقفل",
-    "غير مقفل",       
-     // أكواد الشحن
-    "لا شحن",          // 0
-    "شحن شمسي",        // 1
-    "شحن شبكة",        // 2
-    "شحن شمسي + شبكة", // 3
-    "تعويم",           // 4
-    "معادلة",          // 5
-    "محجوز",           // 6
-    "تعويم / Timer",   // 7
+    "غير مقفل",
+    // أكواد الشحن
+    "لا شحن",           // 0
+    "شحن شمسي",         // 1
+    "شحن شبكة",         // 2
+    "شحن شمسي + شبكة",  // 3
+    "تعويم",            // 4
+    "معادلة",           // 5
+    "محجوز",            // 6
+    "تعويم / Timer",    // 7
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -201,85 +201,88 @@ const char *const VoltronicLang::TABLE_AR[] = {
 // ═══════════════════════════════════════════════════════════════
 const char *VoltronicLang::batteryTypeStr(uint8_t t) const
 {
-    static const Key keys[] = {
-        BAT_TYPE_USER, BAT_TYPE_AGM, BAT_TYPE_FLOODED,
-        BAT_TYPE_PYLON, BAT_TYPE_LIFEPO4_15, BAT_TYPE_LIFEPO4_16};
-    return tr((t > 5) ? BAT_TYPE_USER : keys[t]);
+  static const Key keys[] = {BAT_TYPE_USER,
+                             BAT_TYPE_AGM,
+                             BAT_TYPE_FLOODED,
+                             BAT_TYPE_PYLON,
+                             BAT_TYPE_LIFEPO4_15,
+                             BAT_TYPE_LIFEPO4_16};
+  return tr((t > 5) ? BAT_TYPE_USER : keys[t]);
 }
 
 const char *VoltronicLang::inverterModeStr(char m) const
 {
-    switch (m)
-    {
+  switch (m)
+  {
     case 'P':
-        return tr(INV_POWER_ON);
+      return tr(INV_POWER_ON);
     case 'S':
-        return tr(INV_STANDBY);
+      return tr(INV_STANDBY);
     case 'L':
-        return tr(INV_LINE);
+      return tr(INV_LINE);
     case 'B':
-        return tr(INV_BATTERY);
+      return tr(INV_BATTERY);
     case 'F':
-        return tr(INV_FAULT);
+      return tr(INV_FAULT);
     case 'H':
-        return tr(INV_SAVING);
+      return tr(INV_SAVING);
     default:
-        return tr(INV_UNKNOWN);
-    }
+      return tr(INV_UNKNOWN);
+  }
 }
 
 const char *VoltronicLang::outputPrioStr(uint8_t p) const
 {
-    switch (p)
-    {
+  switch (p)
+  {
     case 0:
-        return tr(PRIO_U_S_B);
+      return tr(PRIO_U_S_B);
     case 1:
-        return tr(PRIO_S_U_B);
+      return tr(PRIO_S_U_B);
     case 2:
-        return tr(PRIO_S_B_U);
+      return tr(PRIO_S_B_U);
     default:
-        return "";
-    }
+      return "";
+  }
 }
 
 const char *VoltronicLang::chargerPrioStr(uint8_t p) const
 {
-    switch (p)
-    {
+  switch (p)
+  {
     case 1:
-        return tr(CHG_SOLAR_FIRST);
+      return tr(CHG_SOLAR_FIRST);
     case 2:
-        return tr(CHG_SOLAR_UTIL);
+      return tr(CHG_SOLAR_UTIL);
     case 3:
-        return tr(CHG_SOLAR_ONLY);
+      return tr(CHG_SOLAR_ONLY);
     default:
-        return "";
-    }
+      return "";
+  }
 }
 
 const char *VoltronicLang::inputRangeStr(uint8_t r) const
 {
-    return (r == 0) ? tr(RANGE_APPLIANCE) : tr(RANGE_UPS);
+  return (r == 0) ? tr(RANGE_APPLIANCE) : tr(RANGE_UPS);
 }
 
 const char *VoltronicLang::powerModeStr(uint8_t m) const
 {
-    switch (m)
-    {
+  switch (m)
+  {
     case 1:
-        return tr(PM_NORMAL);
+      return tr(PM_NORMAL);
     case 2:
-        return tr(PM_SAVING);
+      return tr(PM_SAVING);
     case 3:
-        return tr(PM_EMERGENCY);
+      return tr(PM_EMERGENCY);
     case 4:
-        return tr(PM_SOLAR);
+      return tr(PM_SOLAR);
     case 5:
-        return tr(PM_GRID);
+      return tr(PM_GRID);
     case 6:
-        return tr(PM_COMBINED);
+      return tr(PM_COMBINED);
     default:
-        return tr(PM_UNKNOWN);
-    }
+      return tr(PM_UNKNOWN);
+  }
 }

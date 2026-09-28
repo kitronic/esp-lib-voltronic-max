@@ -1,0 +1,85 @@
+# ═══════════════════════════════════════════════════════════════
+#  clang-format for VoltronicMAX
+#  Arduino C++ style — Kitronic
+# ═══════════════════════════════════════════════════════════════
+
+Language: Cpp
+BasedOnStyle: Google
+
+# ─── الأقواس ───
+BreakBeforeBraces: Allman          # { على سطر جديد
+IndentWidth: 2                     # مسافتان
+TabWidth: 2
+UseTab: Never
+
+# ─── الأسطر ───
+ColumnLimit: 100                   # 100 حرف حد أقصى
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakTemplateDeclarations: Yes
+
+# ─── المؤشرات والمراجع ───
+PointerAlignment: Left             # int* ptr
+ReferenceAlignment: Left           # int& ref
+
+# ─── الـ includes ───
+SortIncludes: CaseInsensitive
+IncludeBlocks: Preserve            # احترم الترتيب الأصلي
+
+# ─── الدوال ───
+BinPackArguments: false            # كل parameter في سطر
+BinPackParameters: false
+AllowAllArgumentsOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: true
+
+# ─── المسافات ───
+SpaceAfterCStyleCast: false
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesInAngles: false
+SpacesInContainerLiterals: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# ─── المحاذاة ───
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignEscapedNewlines: Left
+AlignOperands: true
+AlignTrailingComments: true
+
+# ─── الأسطر الفارغة ───
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 2
+
+# ─── التعليقات ───
+ReflowComments: false              # لا تُعد تنسيق التعليقات
+
+# ─── #define / Macros ───
+AlignConsecutiveMacros: false
+
+# ─── Constructor Initializers ───
+BreakConstructorInitializers: BeforeComma
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
+ConstructorInitializerIndentWidth: 2
+
+# ─── Inheritance ───
+BreakInheritanceList: BeforeComma
+
+# ─── Lambdas ───
+AllowShortLambdasOnASingleLine: Empty
+LambdaBodyIndentation: Signature
+
+# ─── Preprocessor ───
+IndentPPDirectives: AfterHash       # #if، #define، إلخ
+
+# ─── Namespace ───
+NamespaceIndentation: None
+
+# ─── أخرى ───
+Cpp11BracedListStyle: true
+Standard: Cpp11

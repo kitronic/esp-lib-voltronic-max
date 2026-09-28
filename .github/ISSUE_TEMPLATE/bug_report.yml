@@ -1,0 +1,136 @@
+name: 🐛 Bug Report
+description: أبلغ عن خطأ في المكتبة
+title: "[Bug]: "
+labels: ["bug", "triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        شكراً لإبلاغك عن المشكلة! 🙏
+        الرجاء تعبئة المعلومات التالية بدقة لتسريع الفحص.
+
+  - type: checkboxes
+    id: pre-checks
+    attributes:
+      label: قائمة التحقق
+      options:
+        - label: بحثت في Issues السابقة ولم أجد نفس المشكلة
+          required: true
+        - label: أستخدم أحدث إصدار من المكتبة
+          required: true
+        - label: قرأت README واستكشاف الأخطاء
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: وصف المشكلة
+      description: وصف واضح ومختصر للمشكلة
+      placeholder: "مثال: عند استدعاء queryGeneralStatus() على ESP32، تُرجع ERR_TIMEOUT دائماً"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: خطوات إعادة الإنتاج
+      description: خطوات دقيقة لإعادة إنتاج المشكلة
+      placeholder: |
+        1. ثبّت المكتبة
+        2. ارفع هذا الكود: ...
+        3. الاتصال بالإنفرتر
+        4. تظهر الرسالة: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: السلوك المتوقع
+      placeholder: "المتوقع أن تُرجع البيانات بشكل صحيح"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: السلوك الفعلي
+      placeholder: "لكن تُرجع ERR_TIMEOUT بعد 800ms"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: المنصة
+      options:
+        - ESP8266 (NodeMCU, Wemos D1)
+        - ESP32
+        - Arduino UNO / Nano
+        - Arduino SAMD
+        - STM32
+        - أخرى (اذكر في الوصف)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: inverter
+    attributes:
+      label: نوع الإنفرتر
+      options:
+        - Voltronic Axpert MAX (HV 7.2kW)
+        - Voltronic Axpert MAX (LV 5kW)
+        - Axpert King
+        - Axpert VM III
+        - PIP / MPP
+        - أخرى (اذكر في الوصف)
+    validations:
+      required: true
+
+  - type: input
+    id: library-version
+    attributes:
+      label: إصدار المكتبة
+      placeholder: "1.3.0"
+    validations:
+      required: true
+
+  - type: input
+    id: firmware-version
+    attributes:
+      label: إصدار فيرموير الإنفرتر
+      description: ناتج queryFirmware()
+      placeholder: "72.40"
+    validations:
+      required: false
+
+  - type: textarea
+    id: sketch
+    attributes:
+      label: الكود المستخدم
+      description: Minimal reproducible example
+      render: cpp
+      placeholder: |
+        #include <VoltronicMAX.h>
+        ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: serial-output
+    attributes:
+      label: مخرجات Serial Monitor
+      description: بما فيها lastError() و lastResponse()
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: معلومات إضافية
+      description: صور، مخططات، أي شي يساعد
+    validations:
+      required: false

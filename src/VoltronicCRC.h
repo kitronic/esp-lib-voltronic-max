@@ -10,29 +10,29 @@
 //    - Reflect out: No
 //    - XorOut     : 0x0000
 //
-//  ⚠️ ملاحظة: هذا الملف لا يعتمد على Arduino.h — يشتغل
-//  في native tests مباشرة بدون mock.
+//  ⚠️ ملاحظة: هذا الملف لا يعتمد على Arduino.h —
+//  يشتغل في native tests مباشرة بدون mock.
 // ═══════════════════════════════════════════════════════════════
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 // ─── ثوابت CRC ───
 namespace VoltronicCRCDetail
 {
-  constexpr uint16_t POLY = 0x1021;
-  constexpr uint16_t INIT = 0x0000;
+constexpr uint16_t POLY = 0x1021;
+constexpr uint16_t INIT = 0x0000;
 
-  // بايتات تُهربها بعض الأجهزة (تُزاد +1)
-  constexpr uint8_t ESC_0A = 0x0A; // LF
-  constexpr uint8_t ESC_0D = 0x0D; // CR
-  constexpr uint8_t ESC_28 = 0x28; // '('
+// بايتات تُهربها بعض الأجهزة (تُزاد +1)
+constexpr uint8_t ESC_0A = 0x0A;  // LF
+constexpr uint8_t ESC_0D = 0x0D;  // CR
+constexpr uint8_t ESC_28 = 0x28;  // '('
 
-  // القيم بعد التهريب
-  constexpr uint8_t UNESC_0B = 0x0B;
-  constexpr uint8_t UNESC_0E = 0x0E;
-  constexpr uint8_t UNESC_29 = 0x29;
-}
+// القيم بعد التهريب
+constexpr uint8_t UNESC_0B = 0x0B;
+constexpr uint8_t UNESC_0E = 0x0E;
+constexpr uint8_t UNESC_29 = 0x29;
+}  // namespace VoltronicCRCDetail
 
 // ═══════════════════════════════════════════════════════════════
 //  CRC-16/XMODEM — حساب لكل الـ buffer
@@ -86,8 +86,7 @@ inline uint16_t voltronicCRCUpdate(uint16_t crc, uint8_t byte)
 // ═══════════════════════════════════════════════════════════════
 inline uint8_t voltronicEscapeByte(uint8_t b)
 {
-  if (b == VoltronicCRCDetail::ESC_0A ||
-      b == VoltronicCRCDetail::ESC_0D ||
+  if (b == VoltronicCRCDetail::ESC_0A || b == VoltronicCRCDetail::ESC_0D ||
       b == VoltronicCRCDetail::ESC_28)
     return (uint8_t)(b + 1);
   return b;
@@ -95,8 +94,7 @@ inline uint8_t voltronicEscapeByte(uint8_t b)
 
 inline uint8_t voltronicUnescapeByte(uint8_t b)
 {
-  if (b == VoltronicCRCDetail::UNESC_0B ||
-      b == VoltronicCRCDetail::UNESC_0E ||
+  if (b == VoltronicCRCDetail::UNESC_0B || b == VoltronicCRCDetail::UNESC_0E ||
       b == VoltronicCRCDetail::UNESC_29)
     return (uint8_t)(b - 1);
   return b;
@@ -105,8 +103,7 @@ inline uint8_t voltronicUnescapeByte(uint8_t b)
 // ═══════════════════════════════════════════════════════════════
 //  تحويل CRC إلى بايتين (Hi, Lo) مع خيار التهريب
 // ═══════════════════════════════════════════════════════════════
-inline void voltronicCRCBytes(uint16_t crc, uint8_t &hi, uint8_t &lo,
-                              bool applyEscape)
+inline void voltronicCRCBytes(uint16_t crc, uint8_t &hi, uint8_t &lo, bool applyEscape)
 {
   hi = (uint8_t)((crc >> 8) & 0xFF);
   lo = (uint8_t)(crc & 0xFF);

@@ -1,37 +1,36 @@
 #pragma once
 #include <Arduino.h>
-#include "VoltronicConfig.h"
+#include "VoltronicBattery.h"
 #include "VoltronicCommands.h"
+#include "VoltronicConfig.h"
 #include "VoltronicCRC.h"
-#include "VoltronicTypes.h"
-#include "VoltronicParser.h"
-#include "VoltronicTransport.h"
-#include "VoltronicBattery.h"
-#include "VoltronicBattery.h"
-#include "VoltronicSmartCharger.h"
-#include "VoltronicPowerMode.h"
-#include "VoltronicStorage.h"
 #include "VoltronicLang.h"
+#include "VoltronicParser.h"
+#include "VoltronicPowerMode.h"
+#include "VoltronicSmartCharger.h"
+#include "VoltronicStorage.h"
+#include "VoltronicTransport.h"
+#include "VoltronicTypes.h"
 // ═══════════════════════════════════════════════════════════════
 //  Web server type (opt-in via VOLTRONIC_USE_WEB)
 //  ⚠️ نستخدم ARDUINO_ARCH_* (المعيار الرسمي)
 // ═══════════════════════════════════════════════════════════════
 #if defined(VOLTRONIC_USE_WEB)
-  #if defined(ARDUINO_ARCH_ESP8266)
-    #include <ESP8266WebServer.h>
-    #define VoltWebServer ESP8266WebServer
-  #elif defined(ARDUINO_ARCH_ESP32)
-    #include <WebServer.h>
-    #define VoltWebServer WebServer
-  #else
-    #error "VOLTRONIC_USE_WEB requires ESP8266 or ESP32"
-  #endif
+#  if defined(ARDUINO_ARCH_ESP8266)
+#    include <ESP8266WebServer.h>
+#    define VoltWebServer ESP8266WebServer
+#  elif defined(ARDUINO_ARCH_ESP32)
+#    include <WebServer.h>
+#    define VoltWebServer WebServer
+#  else
+#    error "VOLTRONIC_USE_WEB requires ESP8266 or ESP32"
+#  endif
 #endif
 
 class VoltronicMAX
 {
-public:
-  VoltronicBattery battery; // ← عضو عام
+ public:
+  VoltronicBattery battery;  // ← عضو عام
   VoltronicSmartCharger smartCharger;
   VoltronicPowerMode powerMode;
   VoltronicStorage storage;
@@ -121,19 +120,58 @@ public:
   bool setBatteryControl(uint8_t a, uint8_t b, uint8_t c);
 
   // ─── Data access ───
-  const QPIGSData &qpigs() const { return _qpigs; }
-  const QPIGS2Data &qpigs2() const { return _qpigs2; }
-  const QPIRIData &qpiri() const { return _qpiri; }
-  const QFLAGData &qflag() const { return _qflag; }
-  const ParallelInfo &parallel() const { return _parallel; }
-  const BatteryEqualizationInfo &equalization() const { return _beqi; }
-  const LedInfo &led() const { return _led; }
-  const DefaultsInfo &defaults() const { return _defaults; }
-  const BatteryControlStatus &batteryCtrl() const { return _batcd; }
-  const SelectableValues &maxChgOptions() const { return _maxChg; }
-  const SelectableValues &maxUtilChgOptions() const { return _maxUtilChg; }
-  const TimeOrderInfo &outputTimeOrder() const { return _outputTO; }
-  const TimeOrderInfo &chargerTimeOrder() const { return _chargerTO; }
+  const QPIGSData &qpigs() const
+  {
+    return _qpigs;
+  }
+  const QPIGS2Data &qpigs2() const
+  {
+    return _qpigs2;
+  }
+  const QPIRIData &qpiri() const
+  {
+    return _qpiri;
+  }
+  const QFLAGData &qflag() const
+  {
+    return _qflag;
+  }
+  const ParallelInfo &parallel() const
+  {
+    return _parallel;
+  }
+  const BatteryEqualizationInfo &equalization() const
+  {
+    return _beqi;
+  }
+  const LedInfo &led() const
+  {
+    return _led;
+  }
+  const DefaultsInfo &defaults() const
+  {
+    return _defaults;
+  }
+  const BatteryControlStatus &batteryCtrl() const
+  {
+    return _batcd;
+  }
+  const SelectableValues &maxChgOptions() const
+  {
+    return _maxChg;
+  }
+  const SelectableValues &maxUtilChgOptions() const
+  {
+    return _maxUtilChg;
+  }
+  const TimeOrderInfo &outputTimeOrder() const
+  {
+    return _outputTO;
+  }
+  const TimeOrderInfo &chargerTimeOrder() const
+  {
+    return _chargerTO;
+  }
 
   WarningDecoded warnings() const
   {
@@ -141,24 +179,54 @@ public:
     w.raw = _warningsRaw;
     return w;
   }
-  char mode() const { return _mode; }
-  const char *modeString() const { return VoltronicParser::modeToString(_mode); }
-  uint32_t validBits() const { return _validBits; }
-  bool hasBoot() const { return _hasBoot; }
+  char mode() const
+  {
+    return _mode;
+  }
+  const char *modeString() const
+  {
+    return VoltronicParser::modeToString(_mode);
+  }
+  uint32_t validBits() const
+  {
+    return _validBits;
+  }
+  bool hasBoot() const
+  {
+    return _hasBoot;
+  }
 
   // ─── Polling ───
   void startPolling(const VoltronicPollSchedule &schedule);
   void startPolling();
   void stopPolling();
   bool poll();
-  bool pollingCycleDone() const { return _pollCycleDone; }
-  uint32_t pollingCycles() const { return _pollCycles; }
+  bool pollingCycleDone() const
+  {
+    return _pollCycleDone;
+  }
+  uint32_t pollingCycles() const
+  {
+    return _pollCycles;
+  }
 
   // ─── Status ───
-  Error lastError() const { return _lastError; }
-  const char *lastResponse() const { return _respBuf; }
-  const char *lastCommand() const { return _cmdBuf; }
-  size_t lastResponseLen() const { return _respLen; }
+  Error lastError() const
+  {
+    return _lastError;
+  }
+  const char *lastResponse() const
+  {
+    return _respBuf;
+  }
+  const char *lastCommand() const
+  {
+    return _cmdBuf;
+  }
+  size_t lastResponseLen() const
+  {
+    return _respLen;
+  }
   const char *lastErrorName() const;
 
   // ═══════════════════════════════════════════════════════════
@@ -166,12 +234,11 @@ public:
   // ═══════════════════════════════════════════════════════════
 #if defined(VOLTRONIC_USE_WEB)
   void attachWebServer(VoltWebServer *server);
-  void attachWebServer(VoltWebServer *server,
-                       const char *user, const char *pass);
+  void attachWebServer(VoltWebServer *server, const char *user, const char *pass);
   void setWebPrefix(const char *prefix);
 #endif
 
-private:
+ private:
   // ─── Core ───
   VoltronicTransport _transport;
   VoltronicConfig _localCfg;

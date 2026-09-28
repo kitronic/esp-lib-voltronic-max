@@ -1,0 +1,12 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: 📚 Documentation
+    url: https://github.com/kitronic/esp-lib-voltronic-max#readme
+    about: اقرأ README للاستخدام الأساسي
+  - name: 💬 Discussions
+    url: https://github.com/kitronic/esp-lib-voltronic-max/discussions
+    about: أسئلة عامة، أفكار، ومشاركات
+  - name: 🌐 Kitronic Website
+    url: https://kitronic.tech
+    about: الموقع الرسمي

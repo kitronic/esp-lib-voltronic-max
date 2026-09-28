@@ -1,0 +1,153 @@
+name: Lint
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  # ═══════════════════════════════════════════════════════════
+  #  Arduino Library Lint
+  # ═══════════════════════════════════════════════════════════
+  arduino-lint:
+    name: Arduino Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Arduino Library Lint
+        uses: arduino/arduino-lint-action@v1
+        with:
+          library-manager: update
+          compliance: strict
+        continue-on-error: true
+
+  # ═══════════════════════════════════════════════════════════
+  #  library.properties validation
+  # ═══════════════════════════════════════════════════════════
+  library-properties:
+    name: library.properties
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate required fields
+        run: |
+          echo "Checking library.properties required fields..."
+          for field in name version author maintainer sentence paragraph category url architectures; do
+            if ! grep -q "^$field=" library.properties; then
+              echo "::error::Missing required field: $field"
+              exit 1
+            fi
+          done
+          echo "✅ All required fields present"
+
+      - name: Check version format (semver)
+        run: |
+          version=$(grep '^version=' library.properties | cut -d= -f2)
+          if ! echo "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Version '$version' is not valid semver"
+            exit 1
+          fi
+          echo "✅ Version $version is valid semver"
+
+      - name: Check CHANGELOG
+        run: |
+          version=$(grep '^version=' library.properties | cut -d= -f2)
+          if ! grep -q "\[$version\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md missing entry for version $version"
+            exit 1
+          fi
+          echo "✅ CHANGELOG has entry for $version"
+
+      - name: Check library.json version matches
+        run: |
+          prop_version=$(grep '^version=' library.properties | cut -d= -f2)
+          json_version=$(grep '"version"' library.json | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          if [ "$prop_version" != "$json_version" ]; then
+            echo "::error::Version mismatch: library.properties=$prop_version, library.json=$json_version"
+            exit 1
+          fi
+          echo "✅ Versions match: $prop_version"
+
+  # ═══════════════════════════════════════════════════════════
+  #  Code quality checks
+  # ═══════════════════════════════════════════════════════════
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for String usage in library
+        run: |
+          echo "Checking for String class usage..."
+          # استثناء: VoltronicWeb.h يستخدم String (Web server API)
+          if grep -rn '\bString\b' src/*.h src/*.cpp | grep -v "VoltronicWeb.h" | grep -v "//"; then
+            echo "::error::String class used in library (should use char[] instead)"
+            exit 1
+          fi
+          echo "✅ No String usage in core library"
+
+      - name: Check for dynamic allocation
+        run: |
+          echo "Checking for new/malloc/free..."
+          if grep -rn '\bnew \|\bmalloc\|\bfree(' src/*.cpp | grep -v "//"; then
+            echo "::error::Dynamic allocation found (should be zero-alloc)"
+            exit 1
+          fi
+          echo "✅ No dynamic allocation"
+
+      - name: Check for delay() in library
+        run: |
+          echo "Checking for delay() in library..."
+          if grep -rn '\bdelay(' src/*.cpp src/*.h | grep -v "//"; then
+            echo "::warning::delay() found in library (should be non-blocking)"
+          else
+            echo "✅ No delay() in library"
+          fi
+        continue-on-error: true
+
+      - name: Check trailing whitespace
+        run: |
+          if grep -rn ' $' src/*.h src/*.cpp; then
+            echo "::warning::Trailing whitespace found"
+          else
+            echo "✅ No trailing whitespace"
+          fi
+        continue-on-error: true
+
+      - name: Check file encoding (UTF-8)
+        run: |
+          echo "Checking for BOM..."
+          found_bom=0
+          for f in src/*.h src/*.cpp; do
+            if head -c 3 "$f" | grep -q $'\xEF\xBB\xBF'; then
+              echo "::warning::BOM found in $f"
+              found_bom=1
+            fi
+          done
+          if [ $found_bom -eq 0 ]; then
+            echo "✅ No BOM in source files"
+          fi
+        continue-on-error: true
+
+  # ═══════════════════════════════════════════════════════════
+  #  Lint status summary
+  # ═══════════════════════════════════════════════════════════
+  lint-status:
+    name: Lint Status
+    needs: [arduino-lint, library-properties, code-quality]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        run: |
+          if [ "${{ needs.library-properties.result }}" != "success" ] || \
+             [ "${{ needs.code-quality.result }}" != "success" ]; then
+            echo "::error::One or more lint jobs failed"
+            exit 1
+          fi
+          echo "✅ All lint jobs passed"
