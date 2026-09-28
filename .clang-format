@@ -7,28 +7,29 @@ Language: Cpp
 BasedOnStyle: Google
 
 # ─── الأقواس ───
-BreakBeforeBraces: Allman          # { على سطر جديد
-IndentWidth: 2                     # مسافتان
+BreakBeforeBraces: Allman
+IndentWidth: 2
 TabWidth: 2
 UseTab: Never
+IndentCaseLabels: true          # ← يسمح بـ case مُزاحة
 
 # ─── الأسطر ───
-ColumnLimit: 100                   # 100 حرف حد أقصى
+ColumnLimit: 100
 AllowShortFunctionsOnASingleLine: None
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 AlwaysBreakTemplateDeclarations: Yes
 
 # ─── المؤشرات والمراجع ───
-PointerAlignment: Left             # int* ptr
-ReferenceAlignment: Left           # int& ref
+PointerAlignment: Left
+ReferenceAlignment: Left
 
 # ─── الـ includes ───
 SortIncludes: CaseInsensitive
-IncludeBlocks: Preserve            # احترم الترتيب الأصلي
+IncludeBlocks: Preserve
 
 # ─── الدوال ───
-BinPackArguments: false            # كل parameter في سطر
+BinPackArguments: false
 BinPackParameters: false
 AllowAllArgumentsOnNextLine: true
 AllowAllParametersOfDeclarationOnNextLine: true
@@ -57,7 +58,7 @@ KeepEmptyLinesAtTheStartOfBlocks: false
 MaxEmptyLinesToKeep: 2
 
 # ─── التعليقات ───
-ReflowComments: false              # لا تُعد تنسيق التعليقات
+ReflowComments: false
 
 # ─── #define / Macros ───
 AlignConsecutiveMacros: false
@@ -75,7 +76,7 @@ AllowShortLambdasOnASingleLine: Empty
 LambdaBodyIndentation: Signature
 
 # ─── Preprocessor ───
-IndentPPDirectives: AfterHash       # #if، #define، إلخ
+IndentPPDirectives: AfterHash
 
 # ─── Namespace ───
 NamespaceIndentation: None

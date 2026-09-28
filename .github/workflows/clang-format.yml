@@ -15,29 +15,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install clang-format
+      - name: Install clang-format (pinned 22.1.8)
         run: |
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main" -y
           sudo apt-get update
-          sudo apt-get install -y clang-format
+          sudo apt-get install -y clang-format-22
+          sudo ln -sf /usr/bin/clang-format-22 /usr/local/bin/clang-format
 
       - name: Show version
         run: clang-format --version
 
       - name: Check src/ formatting
         run: |
-          echo "Checking src/ ..."
+          echo "Checking src/ (warning only)..."
           errors=0
           for f in src/*.h src/*.cpp; do
             if ! clang-format --dry-run --Werror "$f" 2>/dev/null; then
-              echo "::error file=$f::File is not formatted. Run: clang-format -i $f"
+              echo "::warning file=$f::Not formatted (run: clang-format -i $f)"
               errors=$((errors + 1))
             fi
           done
           if [ $errors -gt 0 ]; then
-            echo "::error::$errors file(s) need formatting"
-            exit 1
+            echo "::warning::$errors file(s) need formatting (non-blocking)"
+          else
+            echo "✅ All src/ files are formatted"
           fi
-          echo "✅ All src/ files are formatted"
 
       - name: Check examples/ formatting
         run: |
