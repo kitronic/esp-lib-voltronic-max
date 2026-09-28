@@ -654,7 +654,7 @@ bool VoltronicMAX::setDateTime(const char *s)
 }
 bool VoltronicMAX::setBatteryControl(uint8_t a, uint8_t b, uint8_t c)
 {
-  char cmd[12];
+  char cmd[20];
   snprintf(cmd, sizeof(cmd), "%s%u%u%u", VC_PBATCD, a, b, c);
   return transact(cmd, true);
 }

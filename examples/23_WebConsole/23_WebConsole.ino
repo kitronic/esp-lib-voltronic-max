@@ -109,7 +109,7 @@ inverter.begin(INV_BAUD);
     inverter.battery.setVoltageFull(BAT_VOLT_FULL);
     inverter.battery.setInitialSoh(100);
 
-    inverter.smartCharger.setMode(VoltronicSmartCharger::STANDARD);
+    inverter.smartCharger.setMode(VoltronicSmartCharger::MODE_STD);
     inverter.smartCharger.setTargetAC(SC_TARGET_AC);
     inverter.smartCharger.setTargetTotal(SC_TARGET_TOTAL);
     inverter.smartCharger.setFloatAC(SC_FLOAT_AC);
