@@ -52,7 +52,8 @@ void VoltronicStorage::load(VoltronicMAX& inv)
   if (_data.magic != MAGIC || _data.version != VERSION)
   {
     VLOG("[Storage] No valid data (magic=0x%08X ver=%u) - using defaults",
-         (unsigned)_data.magic, (unsigned)_data.version);
+         (unsigned)_data.magic,
+         (unsigned)_data.version);
     reset();
     return;
   }
@@ -65,8 +66,7 @@ void VoltronicStorage::load(VoltronicMAX& inv)
 
   if (expected != actual)
   {
-    VLOG("[Storage] CRC error (expected=0x%04X actual=0x%04X) - using defaults",
-         expected, actual);
+    VLOG("[Storage] CRC error (expected=0x%04X actual=0x%04X) - using defaults", expected, actual);
     reset();
     return;
   }
@@ -124,8 +124,8 @@ void VoltronicStorage::reset()
   _data.scTempProtectC = 70;
 
   // ⚡ VERSION 2 defaults
-  _data.sysResistance_mOhm = 15.0f;   // 0.015 Ohm (نفس قيمتك القديمة)
-  _data.voltageEmaAlpha = 25.0f;      // 0.25 EMA
+  _data.sysResistance_mOhm = 15.0f;  // 0.015 Ohm (نفس قيمتك القديمة)
+  _data.voltageEmaAlpha = 25.0f;     // 0.25 EMA
 
   // Power Mode defaults
   _data.pmLocked = 0;
@@ -223,7 +223,9 @@ void VoltronicStorage::_captureFrom(const VoltronicMAX& inv)
 // ═══════════════════════════════════════════════════════════════
 void VoltronicStorage::tick(VoltronicMAX& inv)
 {
-  if (!_dirty) return;
-  if (millis() - _lastChange < 5000) return;
+  if (!_dirty)
+    return;
+  if (millis() - _lastChange < 5000)
+    return;
   save(inv);
 }

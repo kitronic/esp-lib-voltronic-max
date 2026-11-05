@@ -22,9 +22,18 @@ class VoltronicStorage
   void reset();
 
   // ─── حالة ───
-  bool isLoaded() const { return _loaded; }
-  bool isDirty() const { return _dirty; }
-  uint32_t saves() const { return _saves; }
+  bool isLoaded() const
+  {
+    return _loaded;
+  }
+  bool isDirty() const
+  {
+    return _dirty;
+  }
+  uint32_t saves() const
+  {
+    return _saves;
+  }
 
   // ─── auto-save ───
   void markDirty()
