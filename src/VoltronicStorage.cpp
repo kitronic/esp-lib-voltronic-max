@@ -125,7 +125,7 @@ void VoltronicStorage::reset()
 
   // ⚡ VERSION 2 defaults
   _data.sysResistance_mOhm = 8.0f;  // 0.015 Ohm (نفس قيمتك القديمة)
-  _data.voltageEmaAlpha = 25.0f;     // 0.25 EMA
+  _data.voltageEmaAlpha = 25.0f;    // 0.25 EMA
 
   // Power Mode defaults
   _data.pmLocked = 0;
@@ -135,7 +135,9 @@ void VoltronicStorage::reset()
   _data.pmSocRecover = 30;
   _data.pmSocSurplus = 88;
   _data.pmGridMinVoltage = 150;
-
+  // ⚡ VERSION 3: Coulomb + SOC
+  _data.batterySoc = 50.0f;  // 50% افتراضي
+  _data.useCoulomb = true;   // Coulomb Counting مفعّل
   _loaded = false;
   _dirty = false;
 }
@@ -166,7 +168,9 @@ void VoltronicStorage::_applyTo(VoltronicMAX& inv)
   // ═══ Power Mode ═══
   inv.powerMode.setEmergencyLocked(_data.pmLocked != 0);
   inv.lang.setLanguage((VoltronicLang::Language)(_data._pad1 > 1 ? 0 : _data._pad1));
-
+  // ⚡ VERSION 3
+  inv.battery.setInitialSoc(_data.batterySoc);
+  inv.battery.setSocFromCoulomb(_data.useCoulomb);
   if (_data.pmSocEmergency >= 5 && _data.pmSocEmergency <= 40)
     inv.powerMode.setSocEmergency((float)_data.pmSocEmergency);
   if (_data.pmSocPowerSaving >= 10 && _data.pmSocPowerSaving <= 50)
@@ -201,7 +205,9 @@ void VoltronicStorage::_captureFrom(const VoltronicMAX& inv)
   // ⚡ VERSION 2
   _data.sysResistance_mOhm = inv.battery.systemResistance() * 1000.0f;
   _data.voltageEmaAlpha = inv.battery.voltageSmoothing() * 100.0f;
-
+  // ⚡ VERSION 3
+  _data.batterySoc = inv.battery.soc();
+  _data.useCoulomb = inv.battery.socFromCoulomb();
   // ═══ Smart Charger ═══
   _data.scMode = (uint8_t)inv.smartCharger.mode();
   _data.scTargetAC = inv.smartCharger.targetAC();

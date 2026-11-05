@@ -3,25 +3,19 @@
 
 class VoltronicMAX;
 
-// ═══════════════════════════════════════════════════════════════
-//  VoltronicStorage — حفظ الإعدادات في EEPROM
-//  VERSION 2: أضفنا IR compensation + EMA alpha
-// ═══════════════════════════════════════════════════════════════
 class VoltronicStorage
 {
  public:
-  static constexpr uint32_t MAGIC = 0x564F4C54UL;  // "VOLT"
-  static constexpr uint8_t VERSION = 2;            // ← رُفع من 1
+  static constexpr uint32_t MAGIC = 0x564F4C54UL;
+  static constexpr uint8_t VERSION = 3;  // ← من 2 إلى 3
 
   VoltronicStorage();
 
-  // ─── Lifecycle ───
   void begin(uint16_t eepromSize = 512);
   void load(VoltronicMAX& inv);
   void save(const VoltronicMAX& inv);
   void reset();
 
-  // ─── حالة ───
   bool isLoaded() const
   {
     return _loaded;
@@ -35,7 +29,6 @@ class VoltronicStorage
     return _saves;
   }
 
-  // ─── auto-save ───
   void markDirty()
   {
     _dirty = true;
@@ -46,13 +39,12 @@ class VoltronicStorage
  private:
   struct Data
   {
-    // ═══ Header ═══
     uint32_t magic;
     uint8_t version;
     uint8_t _pad1;
     uint16_t _pad2;
 
-    // ═══ Battery ═══
+    // Battery
     uint8_t batteryType;
     uint8_t _padB;
     float batteryCapacityAh;
@@ -62,7 +54,16 @@ class VoltronicStorage
     uint16_t batteryCycleCount;
     uint16_t _padB2;
 
-    // ═══ Smart Charger ═══
+    // ⚡ VERSION 2: IR + EMA
+    float sysResistance_mOhm;
+    float voltageEmaAlpha;
+
+    // ⚡ VERSION 3: Coulomb Counting
+    float batterySoc;        // ← جديد
+    bool useCoulomb;         // ← جديد
+    uint8_t _padCoulomb[3];  // ← padding
+
+    // Smart Charger
     uint8_t scMode;
     uint8_t scTargetAC;
     uint8_t scTargetTotal;
@@ -71,19 +72,14 @@ class VoltronicStorage
     uint8_t scTempProtectC;
     uint16_t _padSC;
 
-    // ═══ Power Mode ═══
+    // Power Mode
     uint8_t pmLocked;
     uint8_t _padPM[3];
 
-    // ═══ ⚡ جديد في VERSION 2 ═══
-    float sysResistance_mOhm;  // مقاومة النظام × 1000 (0 → معطّل)
-    float voltageEmaAlpha;     // alpha × 100 (0..100)
-
-    // ═══ CRC + tail ═══
     uint16_t crc;
     uint16_t _padEnd;
 
-    // ═══ Power Mode thresholds ═══
+    // Power Mode thresholds
     uint8_t pmSocEmergency;
     uint8_t pmSocPowerSaving;
     uint8_t pmSocRecover;

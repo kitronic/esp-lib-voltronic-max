@@ -264,6 +264,7 @@ class VoltronicMAX
   char _mode = ' ';
   bool _hasBoot = false;
   uint32_t _validBits = 0;
+  uint32_t _lastBatteryUpdateMs = 0;
 
   Error _lastError = ERR_NONE;
 

@@ -30,8 +30,7 @@ class VoltronicBattery
     _enabled = en;
   }
 
-  // ═══ جديد: تعويض المقاومة الداخلية ═══
-  // 0 = معطّل. القيمة المعتادة 0.005 - 0.05 Ohm
+  // ═══ IR Compensation + EMA ═══
   void setSystemResistance(float ohm)
   {
     _systemResistance = constrain(ohm, 0.0f, 0.2f);
@@ -41,8 +40,6 @@ class VoltronicBattery
     return _systemResistance;
   }
 
-  // ═══ جديد: EMA Smoothing على الجهد ═══
-  // alpha = 0 → تجميد، alpha = 1 → بدون smoothing
   void setVoltageSmoothing(float alpha)
   {
     _emaAlpha = constrain(alpha, 0.05f, 1.0f);
@@ -52,15 +49,51 @@ class VoltronicBattery
     return _emaAlpha;
   }
 
-  // ═══ جديد: حماية القفزات ═══
-  // أقصى تغيّر مسموح في الجهد بين قراءتين (V)
   void setMaxVoltageJump(float v)
   {
     _maxVoltageJump = constrain(v, 0.5f, 10.0f);
   }
+  float maxVoltageJump() const
+  {
+    return _maxVoltageJump;
+  }
+
+  // ═══ ⚡ جديد: Coulomb Counting + معايرة ═══
+  void setSocFromCoulomb(bool en)
+  {
+    _useCoulomb = en;
+  }
+  bool socFromCoulomb() const
+  {
+    return _useCoulomb;
+  }
+
+  void setSocCalibrationThreshold(float pct)
+  {
+    _socCalibThreshold = constrain(pct, 0.0f, 100.0f);
+  }
+  float socCalibrationThreshold() const
+  {
+    return _socCalibThreshold;
+  }
+
+  // ═══ ⚡ جديد: SOC مبدئي (للاستعادة من EEPROM) ═══
+  void setInitialSoc(float soc)
+  {
+    _soc = constrain(soc, 0.0f, 100.0f);
+    _remainingAh = (_soc / 100.0f) * _capacityAh;
+  }
+  float initialSoc() const
+  {
+    return _soc;
+  }
+  float remainingAh() const
+  {
+    return _remainingAh;
+  }
 
   // ═══ التحديث ═══
-  void update(const QPIGSData& g);
+  void update(const QPIGSData& g, uint32_t dtMs = 1000);
 
   // ═══ النتائج ═══
   float soc() const
@@ -100,19 +133,18 @@ class VoltronicBattery
     return _cRate;
   }
 
-  // ═══ جديد: قراءات الجهد الثلاث ═══
   float rawVoltage() const
   {
     return _rawVoltage;
-  }  // من QPIGS مباشرة
+  }
   float compensatedVoltage() const
   {
     return _compVoltage;
-  }  // بعد IR
+  }
   float voltage() const
   {
     return _smoothedVoltage;
-  }  // بعد EMA (المستخدم في SOC)
+  }
 
   uint16_t chargeCurrent() const
   {
@@ -123,7 +155,6 @@ class VoltronicBattery
     return _dischargeCurrent;
   }
 
-  // ═══ معلومات ═══
   const char* status() const;
   const char* typeName() const;
   VoltronicBatteryType type() const
@@ -158,12 +189,15 @@ class VoltronicBattery
   {
     return _voltageOutOfRange;
   }
+  bool socFromCoulombActive() const
+  {
+    return _useCoulomb && _coulombInitialized;
+  }
 
   static const char* typeToString(VoltronicBatteryType t);
   static VoltronicBatteryType typeFromString(const char* s);
 
  private:
-  // ─── الإعدادات ───
   VoltronicBatteryType _type = VoltronicBatteryType::User;
   bool _enabled = true;
   float _capacityAh = 100.0f;
@@ -176,18 +210,23 @@ class VoltronicBattery
   float _emaAlpha = 0.30f;
   float _maxVoltageJump = 3.0f;
 
-  // ─── القراءات ───
+  // ⚡ Coulomb counting
+  bool _useCoulomb = true;
+  bool _coulombInitialized = false;
+  float _remainingAh = 0.0f;
+  float _socCalibThreshold = 98.0f;
+  uint32_t _lastUpdateMs = 0;
+  bool _firstUpdate = true;
+
   uint16_t _chargeCurrent = 0;
   uint16_t _dischargeCurrent = 0;
 
-  // ─── Voltages ───
   float _rawVoltage = 0;
   float _compVoltage = 0;
   float _smoothedVoltage = 0;
   bool _hasFirstReading = false;
   bool _voltageOutOfRange = false;
 
-  // ─── النتائج ───
   float _soc = 0;
   float _netCurrent = 0;
   float _netPower = 0;
@@ -198,4 +237,5 @@ class VoltronicBattery
 
   void _applyDefaultsForType();
   float _socFromVoltage(float v) const;
+  void _updateCoulomb(uint32_t dtMs);
 };

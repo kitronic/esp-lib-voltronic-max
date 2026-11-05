@@ -2,9 +2,8 @@
 #include <math.h>
 
 // ═══════════════════════════════════════════════════════════════
-//  منحنيات الجهد → SOC
+//  منحنيات SOC
 // ═══════════════════════════════════════════════════════════════
-
 static const float CURVE_LIFEPO4_15S[][2] = {
     {42.0f, 0},
     {46.0f, 10},
@@ -54,8 +53,6 @@ VoltronicBattery::VoltronicBattery()
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  الإعدادات
-// ═══════════════════════════════════════════════════════════════
 void VoltronicBattery::setType(VoltronicBatteryType t)
 {
   _type = t;
@@ -95,6 +92,8 @@ void VoltronicBattery::setCapacity(float ah)
   if (ah > 2000.0f)
     ah = 2000.0f;
   _capacityAh = ah;
+  // إعادة حساب remainingAh بناءً على SOC الحالي
+  _remainingAh = (_soc / 100.0f) * _capacityAh;
 }
 void VoltronicBattery::setVoltageEmpty(float v)
 {
@@ -118,56 +117,113 @@ void VoltronicBattery::setCycleCount(uint16_t c)
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  التحديث
+//  ⚡ Coulomb Counting — تحديث SOC من تكامل التيار
 // ═══════════════════════════════════════════════════════════════
-void VoltronicBattery::update(const QPIGSData& g)
+void VoltronicBattery::_updateCoulomb(uint32_t dtMs)
+{
+  if (!_useCoulomb)
+    return;
+
+  // تهيئة أولى
+  if (!_coulombInitialized)
+  {
+    if (_soc > 0.0f)
+      _remainingAh = (_soc / 100.0f) * _capacityAh;
+    else
+    {
+      // أول قراءة — استخدم الجهد
+      _remainingAh = (_socFromVoltage(_smoothedVoltage) / 100.0f) * _capacityAh;
+      _soc = (_remainingAh / _capacityAh) * 100.0f;
+    }
+    _coulombInitialized = true;
+    return;
+  }
+
+  // تكامل التيار: Ah = A × h = A × (ms / 3600000)
+  float dtHours = dtMs / 3600000.0f;
+  float deltaAh = _netCurrent * dtHours;
+
+  _remainingAh += deltaAh;
+
+  // حدود
+  if (_remainingAh > _capacityAh)
+    _remainingAh = _capacityAh;
+  if (_remainingAh < 0)
+    _remainingAh = 0;
+
+  _soc = (_remainingAh / _capacityAh) * 100.0f;
+
+  // ═══ معايرة تلقائية ═══
+  // عند Float: اضبط SOC إلى 100%
+  if (_rawVoltage >= _voltageFull - 0.3f && _netCurrent < 2.0f)
+  {
+    // Float + تيار منخفض = ممتلئ
+    _soc = 100.0f;
+    _remainingAh = _capacityAh;
+  }
+  // عند Empty: اضبط SOC إلى 0%
+  else if (_rawVoltage <= _voltageEmpty + 0.2f)
+  {
+    _soc = 0.0f;
+    _remainingAh = 0.0f;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  التحديث الرئيسي
+// ═══════════════════════════════════════════════════════════════
+void VoltronicBattery::update(const QPIGSData& g, uint32_t dtMs)
 {
   if (!_enabled)
     return;
 
-  // ─── 1. القراءة الخام ───
+  // ⚡ حساب dt
+  uint32_t now = millis();
+  if (_firstUpdate)
+  {
+    _lastUpdateMs = now;
+    _firstUpdate = false;
+    dtMs = 0;
+  }
+  else
+  {
+    dtMs = now - _lastUpdateMs;
+    _lastUpdateMs = now;
+    if (dtMs > 60000)
+      dtMs = 60000;  // حد أقصى 60 ثانية (تجاهل القفزات)
+  }
+
   _rawVoltage = g.batteryVoltage();
   _chargeCurrent = g.batteryChargingCurrent;
   _dischargeCurrent = g.batteryDischargeCurrent;
-
-  // ─── 2. صافي التيار (صح، مش if) ───
   _netCurrent = (float)_chargeCurrent - (float)_dischargeCurrent;
 
-  // ─── 3. حماية: الجهد خارج النطاق المعقول ───
+  // ═══ حماية جهد ═══
   const float vMin = _voltageEmpty - 6.0f;
   const float vMax = _voltageFull + 6.0f;
   if (_rawVoltage < vMin || _rawVoltage > vMax)
   {
     _voltageOutOfRange = true;
-    // لا نحدّث SOC، لكن نحدّث التيارات
     _netPower = _smoothedVoltage * _netCurrent;
     return;
   }
   _voltageOutOfRange = false;
 
-  // ─── 4. حماية القفزات المفاجئة ───
+  // ═══ Jump Protection ═══
   float vJumped = _rawVoltage;
   if (_hasFirstReading)
   {
     float diff = _rawVoltage - _smoothedVoltage;
     if (fabsf(diff) > _maxVoltageJump)
-    {
-      // نقصّ التغيير لأقصى مسموح في اتجاه واحد
       vJumped = _smoothedVoltage + (_maxVoltageJump * (diff > 0 ? 1.0f : -1.0f));
-    }
   }
 
-  // ─── 5. تعويض المقاومة الداخلية (IR Compensation) ───
-  //  V_ocv ≈ V_measured − (I_net × R_system)
-  //  عند الشحن (I_net > 0): V_measured أعلى → ننقص
-  //  عند التفريغ (I_net < 0): V_measured أقل → نزيد
+  // ═══ IR Compensation ═══
   _compVoltage = vJumped;
   if (_systemResistance > 0.001f)
-  {
     _compVoltage = vJumped - (_netCurrent * _systemResistance);
-  }
 
-  // ─── 6. EMA Smoothing على الجهد (وليس على SOC) ───
+  // ═══ EMA Smoothing ═══
   if (!_hasFirstReading)
   {
     _smoothedVoltage = _compVoltage;
@@ -178,29 +234,33 @@ void VoltronicBattery::update(const QPIGSData& g)
     _smoothedVoltage = _smoothedVoltage * (1.0f - _emaAlpha) + _compVoltage * _emaAlpha;
   }
 
-  // ─── 7. SOC من الجهد الناعم ───
-  _soc = _socFromVoltage(_smoothedVoltage);
+  // ═══════════════════════════════════════════════════════════
+  //  ⚡ SOC: Coulomb Counting + Voltage
+  // ═══════════════════════════════════════════════════════════
+  if (_useCoulomb)
+  {
+    _updateCoulomb(dtMs);
+  }
+  else
+  {
+    _soc = _socFromVoltage(_smoothedVoltage);
+    _remainingAh = (_soc / 100.0f) * _capacityAh;
+  }
 
-  // ─── 8. صافي القدرة ───
+  // ═══ حسابات إضافية ═══
   _netPower = _smoothedVoltage * _netCurrent;
-
-  // ─── 9. الطاقة المتبقية (بـ nominalV وليس voltage الحالي) ───
   _remainingWh = (_soc / 100.0f) * _capacityAh * _nominalV;
-
-  // ─── 10. C-Rate ───
   _cRate = fabsf(_netCurrent) / _capacityAh;
 
-  // ─── 11. ساعات التفريغ ───
   if (_netPower < -5.0f)
     _remainingHours = _remainingWh / (-_netPower);
   else
     _remainingHours = 0.0f;
 
-  // ─── 12. ساعات حتى الامتلاء ───
   if (_netCurrent > 0.5f && _soc < 100.0f)
   {
-    float remainingAh = (1.0f - _soc / 100.0f) * _capacityAh;
-    _timeToFull = remainingAh / _netCurrent;
+    float remainingAhToFull = (1.0f - _soc / 100.0f) * _capacityAh;
+    _timeToFull = remainingAhToFull / _netCurrent;
   }
   else
   {
@@ -208,8 +268,6 @@ void VoltronicBattery::update(const QPIGSData& g)
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  SOC من الجهد
 // ═══════════════════════════════════════════════════════════════
 float VoltronicBattery::_socFromVoltage(float v) const
 {
@@ -260,8 +318,6 @@ float VoltronicBattery::_socFromVoltage(float v) const
   return 0.0f;
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Helpers
 // ═══════════════════════════════════════════════════════════════
 const char* VoltronicBattery::status() const
 {

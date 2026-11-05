@@ -18,8 +18,9 @@ bool VoltronicMAX::begin(const VoltronicConfig& cfg)
   _localCfg = cfg;
   _transport.attachConfig(&_localCfg);
   _transport.clear();
-  storage.begin(512);   // ← جديد
-  storage.load(*this);  // ← جديد
+  storage.begin(512);
+  storage.load(*this);
+  _lastBatteryUpdateMs = millis();  // ⚡ جديد
   return true;
 }
 
@@ -74,7 +75,6 @@ bool VoltronicMAX::buildFrame(const char* cmd, uint8_t* out, size_t& outLen)
 {
   size_t cmdLen = strlen(cmd);
 
-  // out buffer = VOLTRONIC_CMD_BUF_SIZE + 4 → نحتاج cmdLen + 3
   if (cmdLen + 3 > VOLTRONIC_CMD_BUF_SIZE + 4)
   {
     _lastError = ERR_TOO_LONG;
@@ -111,7 +111,6 @@ bool VoltronicMAX::checkCRC()
 
   uint16_t calc = voltronicCRC((const uint8_t*)_respBuf, _respLen - 2);
 
-  // ─── Try 1: direct ───
   uint16_t recv1 = ((uint16_t)rawHi << 8) | rawLo;
   if (recv1 == calc)
   {
@@ -120,7 +119,6 @@ bool VoltronicMAX::checkCRC()
     return true;
   }
 
-  // ─── Try 2: unescape ───
   if (_localCfg.applyCrcEscape)
   {
     uint8_t unh = voltronicUnescapeByte(rawHi);
@@ -139,7 +137,7 @@ bool VoltronicMAX::checkCRC()
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  ACK / NAK detection — ✅ مصحّح: يتجاوز '(' في البداية
+//  ACK / NAK detection
 // ═══════════════════════════════════════════════════════════════
 const char* VoltronicMAX::payloadStart() const
 {
@@ -159,7 +157,7 @@ bool VoltronicMAX::isNak() const
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  Filter printable — يُطبَّق بعد CRC على payload
+//  Filter printable
 // ═══════════════════════════════════════════════════════════════
 void VoltronicMAX::applyPrintableFilter()
 {
@@ -217,7 +215,6 @@ bool VoltronicMAX::transact(const char* cmd, bool expectAck)
     if (!checkCRC())
       continue;
 
-    // ✅ الفلتر بعد CRC — لا يؤثر على الحساب
     applyPrintableFilter();
 
     if (expectAck)
@@ -319,7 +316,10 @@ bool VoltronicMAX::queryGeneralStatus()
     return false;
   }
   _validBits |= VVB_QPIGS;
-  battery.update(_qpigs);  // ← جديد: يحدّث الحسابات
+  // ⚡ Coulomb: تمرير dt
+  uint32_t now = millis();
+  battery.update(_qpigs, now - _lastBatteryUpdateMs);
+  _lastBatteryUpdateMs = now;
   return true;
 }
 
@@ -346,8 +346,8 @@ bool VoltronicMAX::queryRating()
     return false;
   }
   _validBits |= VVB_QPIRI;
-  smartCharger.update(*this, battery);  // ← جديد
-  powerMode.update(*this, battery);     // ← جديد
+  smartCharger.update(*this, battery);
+  powerMode.update(*this, battery);
   return true;
 }
 
@@ -835,11 +835,6 @@ bool VoltronicMAX::poll()
 // ═══════════════════════════════════════════════════════════════
 #if defined(VOLTRONIC_USE_WEB)
 
-// ═══════════════════════════════════════════════════════════════
-//  VoltronicWeb.h — Web Console + Parser
-// ═══════════════════════════════════════════════════════════════
-
-// ─── جدول الأوامر (PROGMEM) ───
 struct VoltWebCmdEntry
 {
   const char* cmd;
@@ -907,9 +902,6 @@ static const VoltWebCmdEntry VWEB_CMDS[] PROGMEM = {
 };
 static const size_t VWEB_CMDS_N = sizeof(VWEB_CMDS) / sizeof(VWEB_CMDS[0]);
 
-// ═══════════════════════════════════════════════════════════════
-//  HTML (PROGMEM)
-// ═══════════════════════════════════════════════════════════════
 static const char VHTML_P1[] PROGMEM =
     "<!DOCTYPE html><html lang='en'><head><meta charset='utf-8'>"
     "<meta name='viewport' content='width=device-width,initial-scale=1'>"
@@ -1017,14 +1009,24 @@ static const char VHTML_P2[] PROGMEM =
     "<label style='font-size:.8rem;color:#6b7280'>System Resistance (mΩ)</label>"
     "<select id='batResistance' style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
     "<option value='0'>معطّل (0)</option>"
+    "<option value='3'>3 mΩ (LiFePO4 كبيرة جداً)</option>"
     "<option value='5'>5 mΩ (LiFePO4 كبيرة)</option>"
     "<option value='8' selected>8 mΩ (LiFePO4 100-200Ah)</option>"
     "<option value='10'>10 mΩ (LiFePO4 صغيرة)</option>"
     "<option value='12'>12 mΩ (AGM جديدة)</option>"
     "<option value='15'>15 mΩ (AGM قديمة)</option>"
+    "<option value='18'>18 mΩ (AGM قديمة جداً)</option>"
     "<option value='20'>20 mΩ (Flooded)</option>"
     "<option value='25'>25 mΩ (بطارية ضعيفة)</option>"
     "<option value='30'>30 mΩ (بطارية سيئة)</option>"
+    "<option value='40'>40 mΩ (بطارية تالفة)</option>"
+    "<option value='50'>50 mΩ (تحتاج استبدال)</option>"
+    "</select>"
+    // ⚡ SOC Method — جديد
+    "<label style='font-size:.8rem;color:#6b7280'>SOC Method</label>"
+    "<select id='batSocMethod' style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
+    "<option value='0'>Voltage Only (جهد)</option>"
+    "<option value='1' selected>Coulomb + Voltage (تيار)</option>"
     "</select>"
     "<button onclick='saveBattery()' "
     "style='padding:8px;border:0;background:#16a34a;"
@@ -1135,7 +1137,6 @@ static const char VHTML_P2[] PROGMEM =
     "esc=s=>String(s).replace(/[<>&]/"
     "g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));"
 
-    // ─── Banner message ───
     "function showMsg(text, ok){"
     "let el=$('msgBanner');"
     "if(!el){el=document.createElement('div');el.id='msgBanner';"
@@ -1148,7 +1149,6 @@ static const char VHTML_P2[] PROGMEM =
     "window._msgTimer=setTimeout(()=>{el.style.opacity='0';},3000);"
     "}"
 
-    // ─── Load commands ───
     "async function load(){"
     "try{"
     "const r=await fetch(BASE+'api/commands');"
@@ -1158,7 +1158,6 @@ static const char VHTML_P2[] PROGMEM =
     "'+esc(e.message)+'</span>';}"
     "}"
 
-    // ─── Render list ───
     "function setFilter(f){FILTER=f;"
     "['fAll','fQ','fS'].forEach((id,i)=>$(id).classList.toggle('active',i===f))"
     ";"
@@ -1184,7 +1183,6 @@ static const char VHTML_P2[] PROGMEM =
     "}).join('');"
     "}"
 
-    // ─── Execute ───
     "async function run(i){const c=CMDS[i];"
     "const p=c.type===1?$('p'+i).value:'';"
     "await send(c.cmd,p,c.type);}"
@@ -1213,9 +1211,6 @@ static const char VHTML_P2[] PROGMEM =
     "}"
     "}"
 
-    // ═══════════════════════════════════════════════════════════
-    //  PARSERS
-    // ═══════════════════════════════════════════════════════════
     "function clean(s){return String(s||'').replace(/^\\s*\\(/,'').trim();}"
     "function tok(s){return clean(s).split(/\\s+/);}"
 
@@ -1227,7 +1222,6 @@ static const char VHTML_P2[] PROGMEM =
     "const CHG_PRIO={1:'Solar First',2:'Solar + Utility',3:'Only Solar'};"
     "const GRID_RANGE=['Appliance','UPS'];"
 
-    // ─── parseDeviceStatus ───
     "function parseDeviceStatus(s){"
     "s=String(s||'');"
     "if(s.length<8)return [['Raw',s]];"
@@ -1258,7 +1252,6 @@ static const char VHTML_P2[] PROGMEM =
     "return flags;"
     "}"
 
-    // ─── parseQPIGS ───
     "function parseQPIGS(resp){"
     "const t=tok(resp);if(t.length<20)return null;"
     "const result = ["
@@ -1444,7 +1437,16 @@ static const char VHTML_P2[] PROGMEM =
     "+'&cap='+encodeURIComponent($('batCap').value)"
     "+'&vEmpty='+encodeURIComponent($('batVEmpty').value)"
     "+'&vFull='+encodeURIComponent($('batVFull').value)"
-    "+'&resistance='+encodeURIComponent($('batResistance').value);"
+    "+'&resistance='+encodeURIComponent($('batResistance').value)"
+    "+'&socMethod='+encodeURIComponent($('batSocMethod').value);"
+    "try{"
+    "const r=await fetch(BASE+'api/battery',{method:'POST',"
+    "headers:{'Content-Type':'application/x-www-form-urlencoded'},body});"
+    "const j=await r.json();"
+    "showMsg(j.ok?('Battery saved ('+j.cap+' Ah)'):('Error: "
+    "'+(j.error||'failed')), j.ok);"
+    "}catch(e){showMsg('Error: '+e.message, false);}"
+    "}"
 
     // ═══════════════ Save Smart Charger ═══════════════
     "async function saveSmartCharger(){"
@@ -1477,7 +1479,7 @@ static const char VHTML_P2[] PROGMEM =
     "}catch(e){showMsg('Error: '+e.message, false);}"
     "}"
 
-    // ═══════════════ Load inputs (مرة واحدة) ═══════════════
+    // ═══════════════ Load inputs ═══════════════
     "let inputsLoaded=false;"
     "async function loadInputs(){"
     "if(inputsLoaded)return;"
@@ -1489,6 +1491,7 @@ static const char VHTML_P2[] PROGMEM =
     "$('batVEmpty').value=s.batVEmpty||42;"
     "$('batVFull').value=s.batVFull||54;"
     "if(s.sysRes_mOhm!==undefined)$('batResistance').value=Math.round(s.sysRes_mOhm);"
+    "if(s.useCoulomb!==undefined)$('batSocMethod').value=s.useCoulomb?1:0;"
     "$('scMode').value=s.scMode||1;"
     "$('scAC').value=s.scAC||40;"
     "$('scTotal').value=s.scTotal||80;"
@@ -1504,7 +1507,7 @@ static const char VHTML_P2[] PROGMEM =
     "}catch(e){}"
     "}"
 
-    // ═══════════════ Update Status Box (كل 5s) ═══════════════
+    // ═══════════════ Update Status Box ═══════════════
     "async function updateStatusBox(){"
     "try{"
     "const r=await fetch(BASE+'api/status');"
@@ -1518,6 +1521,7 @@ static const char VHTML_P2[] PROGMEM =
     "+'<b>Stage:</b> '+(s.stage||'-')+'<br>'"
     "+'<b>Status:</b> '+(s.status||'-')+'<br>'"
     "+'<b>Power Mode:</b> '+(s.powerMode||'-')+'<br>'"
+    "+'<b>SOC Method:</b> '+(s.useCoulomb?'Coulomb':'Voltage')+'<br>'"
     "+'<b>Storage saves:</b> '+(s.saves||0);"
     "}catch(e){$('statusBox').textContent='err: '+e.message;}"
     "}"
@@ -1631,7 +1635,6 @@ bool VoltronicMAX::_webRequireAuth()
   return false;
 }
 
-// ─── GET / ───
 void VoltronicMAX::_webHandlePage()
 {
   if (!_webRequireAuth())
@@ -1649,7 +1652,6 @@ void VoltronicMAX::_webHandlePage()
   _webServer->sendContent("");
 }
 
-// ─── GET /api/commands ───
 void VoltronicMAX::_webHandleList()
 {
   if (!_webRequireAuth())
@@ -1676,7 +1678,6 @@ void VoltronicMAX::_webHandleList()
   _webServer->sendContent("");
 }
 
-// ─── POST /api/cmd ───
 void VoltronicMAX::_webHandleExecute()
 {
   if (!_webRequireAuth())
@@ -1687,14 +1688,12 @@ void VoltronicMAX::_webHandleExecute()
     return;
   }
 
-  // ─── نسخ فوري من String المؤقت إلى char[] ───
   char cmd[24] = {0};
   char param[24] = {0};
   strncpy(cmd, _webServer->arg("cmd").c_str(), sizeof(cmd) - 1);
   strncpy(param, _webServer->arg("param").c_str(), sizeof(param) - 1);
   uint8_t type = (uint8_t)_webServer->arg("type").toInt();
 
-  // ─── بناء الأمر الكامل في char[] ───
   char full[VOLTRONIC_CMD_BUF_SIZE] = {0};
   size_t cmdLen = strlen(cmd);
   size_t paramLen = strlen(param);
@@ -1727,8 +1726,6 @@ void VoltronicMAX::_webHandleExecute()
   _webServer->send(200, "application/json", out);
 }
 
-// ─── POST /api/battery ───
-// ─── POST /api/battery ───
 void VoltronicMAX::_webHandleBattery()
 {
   if (!_webRequireAuth())
@@ -1743,7 +1740,6 @@ void VoltronicMAX::_webHandleBattery()
   if (_webServer->hasArg("vFull"))
     battery.setVoltageFull(_webServer->arg("vFull").toFloat());
 
-  // ⚡ systemResistance — يُستقبل بـ mΩ ويُخزَّن بـ Ω
   if (_webServer->hasArg("resistance"))
   {
     float r_mOhm = _webServer->arg("resistance").toFloat();
@@ -1751,25 +1747,34 @@ void VoltronicMAX::_webHandleBattery()
     VLOG("[Web] Resistance set to %.0fmΩ", r_mOhm);
   }
 
+  // ⚡ SOC Method — جديد
+  if (_webServer->hasArg("socMethod"))
+  {
+    bool useCoulomb = (_webServer->arg("socMethod").toInt() != 0);
+    battery.setSocFromCoulomb(useCoulomb);
+    VLOG("[Web] SOC method: %s", useCoulomb ? "Coulomb" : "Voltage");
+  }
+
   storage.save(*this);
 
-  char buf[160];
+  char buf[200];
   snprintf_P(buf,
              sizeof(buf),
              PSTR("{\"ok\":true,\"cap\":%.0f,\"type\":\"%s\","
-                  "\"res_mOhm\":%.0f}"),
+                  "\"res_mOhm\":%.0f,\"useCoulomb\":%s}"),
              battery.capacityAh(),
              battery.typeName(),
-             battery.systemResistance() * 1000.0f);
+             battery.systemResistance() * 1000.0f,
+             battery.socFromCoulomb() ? "true" : "false");
   _webServer->send(200, "application/json", buf);
 
-  VLOG("[Web] Battery saved: %.0fAh, type=%s, R=%.1fmΩ\n",
+  VLOG("[Web] Battery saved: %.0fAh, type=%s, R=%.1fmΩ, method=%s\n",
        battery.capacityAh(),
        battery.typeName(),
-       battery.systemResistance() * 1000.0f);
+       battery.systemResistance() * 1000.0f,
+       battery.socFromCoulomb() ? "Coulomb" : "Voltage");
 }
 
-// ─── POST /api/smartcharger ───
 void VoltronicMAX::_webHandleSmartCharger()
 {
   if (!_webRequireAuth())
@@ -1798,7 +1803,6 @@ void VoltronicMAX::_webHandleSmartCharger()
        smartCharger.targetTotal());
 }
 
-// ─── GET /api/status ───
 void VoltronicMAX::_webHandleStatus()
 {
   if (!_webRequireAuth())
@@ -1820,20 +1824,18 @@ void VoltronicMAX::_webHandleStatus()
                   "\"rawVolt\":%.2f,\"compVolt\":%.2f,\"smoothVolt\":%.2f,"
                   "\"sysRes\":%.4f,\"emaAlpha\":%.2f,"
                   "\"sysRes_mOhm\":%.0f,"
+                  "\"useCoulomb\":%s,"
                   "\"vOutOfRange\":%s}"),
-             // ─── Battery ───
              battery.typeName(),
              battery.capacityAh(),
              battery.voltageEmpty(),
              battery.voltageFull(),
-             // ─── Smart Charger ───
              (unsigned)smartCharger.mode(),
              smartCharger.targetAC(),
              smartCharger.targetTotal(),
              smartCharger.floatAC(),
              smartCharger.floatTotal(),
              smartCharger.tempProtectC(),
-             // ─── Battery status ───
              battery.soc(),
              battery.soh(),
              battery.voltage(),
@@ -1841,7 +1843,6 @@ void VoltronicMAX::_webHandleStatus()
              battery.remainingKWh(),
              smartCharger.stage(),
              smartCharger.status(),
-             // ─── Power Mode ───
              powerMode.modeNameEn(),
              storage.saves(),
              powerMode.socEmergency(),
@@ -1849,18 +1850,18 @@ void VoltronicMAX::_webHandleStatus()
              powerMode.socRecover(),
              powerMode.socSurplus(),
              powerMode.gridMinVoltage(),
-             // ─── ⚡ الحقول الجديدة ───
              battery.rawVoltage(),
              battery.compensatedVoltage(),
              battery.voltage(),
              battery.systemResistance(),
              battery.voltageSmoothing(),
              battery.systemResistance() * 1000.0f,
+             battery.socFromCoulomb() ? "true" : "false",
              battery.voltageOutOfRange() ? "true" : "false");
 
   _webServer->send(200, "application/json", buf);
 }
-// ─── POST /api/powermode ───
+
 void VoltronicMAX::_webHandlePowerMode()
 {
   if (!_webRequireAuth())
@@ -1881,7 +1882,6 @@ void VoltronicMAX::_webHandlePowerMode()
   _webServer->send_P(200, PSTR("application/json"), PSTR("{\"ok\":true}"));
 }
 
-// ─── Routes ───
 void VoltronicMAX::_webRegisterRoutes()
 {
   if (!_webServer)
