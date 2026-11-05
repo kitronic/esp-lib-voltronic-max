@@ -1215,7 +1215,7 @@ static const char VHTML_P2[] PROGMEM =
     "function tok(s){return clean(s).split(/\\s+/);}"
 
     "const MODES={P:'Power On',S:'Standby',L:'Line',B:'Battery',"
-    "F:'Fault',H:'Power Saving',D:'Shutdown'};"
+    "F:'Fault',H:'Power Saving',C:'Charge',D:'Shutdown'};"
     "const BAT_TYPES=['AGM','Flooded','User','Pylontech'];"
     "const "
     "OUT_PRIO=['Utility→Solar→Batt','Solar→Utility→Batt','Solar→Batt→Utility'];"

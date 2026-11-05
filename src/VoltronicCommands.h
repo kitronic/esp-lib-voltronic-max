@@ -99,6 +99,7 @@
 #define VC_MODE_BATTERY 'B'
 #define VC_MODE_FAULT 'F'
 #define VC_MODE_POWER_SAVING 'H'
+#define VC_MODE_CHARGE 'C'
 #define VC_MODE_SHUTDOWN 'D'
 
 // ═══════════════════════════════════════════════════════════════

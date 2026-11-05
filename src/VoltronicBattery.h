@@ -215,6 +215,8 @@ class VoltronicBattery
   bool _coulombInitialized = false;
   float _remainingAh = 0.0f;
   float _socCalibThreshold = 98.0f;
+  uint32_t _fullVoltageMs = 0;
+  uint32_t _emptyVoltageMs = 0;
   uint32_t _lastUpdateMs = 0;
   bool _firstUpdate = true;
 
@@ -237,5 +239,5 @@ class VoltronicBattery
 
   void _applyDefaultsForType();
   float _socFromVoltage(float v) const;
-  void _updateCoulomb(uint32_t dtMs);
+  void _updateCoulomb(uint32_t dtMs, bool chargingToFloat);
 };

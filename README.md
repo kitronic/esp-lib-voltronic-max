@@ -26,6 +26,7 @@
 
 ### إضافات v1.3.0 — حساب البطارية والتحكم الذكي
 - ✅ **`VoltronicBattery`** — SOC/SOH/Energy/C-Rate من الجهد (منحنيات LiFePO4/AGM)
+- ✅ **Coulomb SOC calibration** — full/empty calibration requires a stable matching charge state/voltage for 60 seconds
 - ✅ **`VoltronicSmartCharger`** — شحن ذكي تلقائي (MCHGC/MUCHGC)
 - ✅ **`VoltronicPowerMode`** — وضع الطاقة (عادي/طوارئ/فائض) بعتبات قابلة للتخصيص
 - ✅ **`VoltronicStorage`** — حفظ دائم في EEPROM مع CRC16

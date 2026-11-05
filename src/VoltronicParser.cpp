@@ -368,9 +368,23 @@ bool VoltronicParser::parseQPIRI(const char* payload, QPIRIData& out)
   out.outputMode = (uint8_t)u;
   if (!next())
     return true;
-  out.batteryRedischargeVoltage_x10 = strToU16x10(tok);
+  uint16_t redischargeVoltage = strToU16x10(tok);
   if (!next())
+  {
+    out.batteryRedischargeVoltage_x10 = redischargeVoltage;
     return true;
+  }
+  uint16_t nextValue = strToU16x10(tok);
+  if (redischargeVoltage == 0 && nextValue >= 480 && nextValue <= 620)
+  {
+    redischargeVoltage = nextValue;
+    if (!next())
+    {
+      out.batteryRedischargeVoltage_x10 = redischargeVoltage;
+      return true;
+    }
+  }
+  out.batteryRedischargeVoltage_x10 = redischargeVoltage;
   toU32(u);
   out.pvOKConditionForParallel = (uint8_t)u;
   if (!next())

@@ -119,7 +119,7 @@ void VoltronicBattery::setCycleCount(uint16_t c)
 // ═══════════════════════════════════════════════════════════════
 //  ⚡ Coulomb Counting — تحديث SOC من تكامل التيار
 // ═══════════════════════════════════════════════════════════════
-void VoltronicBattery::_updateCoulomb(uint32_t dtMs)
+void VoltronicBattery::_updateCoulomb(uint32_t dtMs, bool chargingToFloat)
 {
   if (!_useCoulomb)
     return;
@@ -153,16 +153,39 @@ void VoltronicBattery::_updateCoulomb(uint32_t dtMs)
 
   _soc = (_remainingAh / _capacityAh) * 100.0f;
 
-  // ═══ معايرة تلقائية ═══
-  // عند Float: اضبط SOC إلى 100%
-  if (_rawVoltage >= _voltageFull - 0.3f && _netCurrent < 2.0f)
+  const bool stableSample = dtMs > 0 && dtMs <= 15000;
+  const bool fullCondition = stableSample && chargingToFloat &&
+                             _rawVoltage >= _voltageFull - 0.3f && _netCurrent >= -0.5f &&
+                             _netCurrent < 2.0f;
+  if (fullCondition)
   {
-    // Float + تيار منخفض = ممتلئ
+    if (_fullVoltageMs < 60000)
+      _fullVoltageMs += dtMs;
+    if (_fullVoltageMs > 60000)
+      _fullVoltageMs = 60000;
+  }
+  else
+    _fullVoltageMs = 0;
+
+  if (_fullVoltageMs >= 60000)
+  {
     _soc = 100.0f;
     _remainingAh = _capacityAh;
   }
-  // عند Empty: اضبط SOC إلى 0%
-  else if (_rawVoltage <= _voltageEmpty + 0.2f)
+
+  const bool emptyCondition =
+      stableSample && _rawVoltage <= _voltageEmpty + 0.2f && _netCurrent <= 0.5f;
+  if (emptyCondition)
+  {
+    if (_emptyVoltageMs < 60000)
+      _emptyVoltageMs += dtMs;
+    if (_emptyVoltageMs > 60000)
+      _emptyVoltageMs = 60000;
+  }
+  else
+    _emptyVoltageMs = 0;
+
+  if (_emptyVoltageMs >= 60000)
   {
     _soc = 0.0f;
     _remainingAh = 0.0f;
@@ -175,7 +198,11 @@ void VoltronicBattery::_updateCoulomb(uint32_t dtMs)
 void VoltronicBattery::update(const QPIGSData& g, uint32_t dtMs)
 {
   if (!_enabled)
+  {
+    _fullVoltageMs = 0;
+    _emptyVoltageMs = 0;
     return;
+  }
 
   // ⚡ حساب dt
   uint32_t now = millis();
@@ -204,6 +231,8 @@ void VoltronicBattery::update(const QPIGSData& g, uint32_t dtMs)
   if (_rawVoltage < vMin || _rawVoltage > vMax)
   {
     _voltageOutOfRange = true;
+    _fullVoltageMs = 0;
+    _emptyVoltageMs = 0;
     _netPower = _smoothedVoltage * _netCurrent;
     return;
   }
@@ -239,10 +268,12 @@ void VoltronicBattery::update(const QPIGSData& g, uint32_t dtMs)
   // ═══════════════════════════════════════════════════════════
   if (_useCoulomb)
   {
-    _updateCoulomb(dtMs);
+    _updateCoulomb(dtMs, g.sb2ChargingToFloat());
   }
   else
   {
+    _fullVoltageMs = 0;
+    _emptyVoltageMs = 0;
     _soc = _socFromVoltage(_smoothedVoltage);
     _remainingAh = (_soc / 100.0f) * _capacityAh;
   }
