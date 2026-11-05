@@ -126,7 +126,7 @@ hasBoot	KEYWORD2
 decodeDeviceStatus	KEYWORD2
 
 #######################################
-# Battery (v1.3.0)
+# Battery
 #######################################
 battery	KEYWORD1
 setType	KEYWORD2
@@ -136,6 +136,9 @@ setVoltageFull	KEYWORD2
 setNominalVoltage	KEYWORD2
 setInitialSoh	KEYWORD2
 setCycleCount	KEYWORD2
+setSystemResistance	KEYWORD2
+setVoltageSmoothing	KEYWORD2
+setMaxVoltageJump	KEYWORD2
 soc	KEYWORD2
 soh	KEYWORD2
 netCurrent	KEYWORD2
@@ -148,6 +151,12 @@ cRate	KEYWORD2
 voltage	KEYWORD2
 chargeCurrent	KEYWORD2
 dischargeCurrent	KEYWORD2
+rawVoltage	KEYWORD2
+compensatedVoltage	KEYWORD2
+systemResistance	KEYWORD2
+voltageSmoothing	KEYWORD2
+maxVoltageJump	KEYWORD2
+voltageOutOfRange	KEYWORD2
 status	KEYWORD2
 typeName	KEYWORD2
 capacityAh	KEYWORD2
@@ -159,7 +168,7 @@ typeToString	KEYWORD2
 typeFromString	KEYWORD2
 
 #######################################
-# Smart Charger (v1.3.0)
+# Smart Charger
 #######################################
 smartCharger	KEYWORD1
 setMode	KEYWORD2
@@ -188,7 +197,7 @@ totalOptions	KEYWORD2
 modeToString	KEYWORD2
 
 #######################################
-# Power Mode (v1.3.0)
+# Power Mode
 #######################################
 powerMode	KEYWORD1
 setSocEmergency	KEYWORD2
@@ -208,7 +217,7 @@ modeNameEn	KEYWORD2
 modeNameAr	KEYWORD2
 
 #######################################
-# Storage / EEPROM (v1.3.0)
+# Storage / EEPROM
 #######################################
 storage	KEYWORD1
 load	KEYWORD2
@@ -221,7 +230,7 @@ markDirty	KEYWORD2
 saves	KEYWORD2
 
 #######################################
-# Language (v1.3.0)
+# Language
 #######################################
 lang	KEYWORD1
 setLanguage	KEYWORD2
@@ -261,7 +270,7 @@ attachWebServer	KEYWORD2
 setWebPrefix	KEYWORD2
 
 #######################################
-# Constants (KEYWORD3 = literals)
+# Error codes
 #######################################
 ERR_NONE	KEYWORD3
 ERR_TIMEOUT	KEYWORD3
@@ -273,6 +282,9 @@ ERR_PARSE	KEYWORD3
 ERR_BUSY	KEYWORD3
 ERR_TOO_LONG	KEYWORD3
 
+#######################################
+# Valid bits
+#######################################
 VVB_QPIGS	KEYWORD3
 VVB_QPIGS2	KEYWORD3
 VVB_QPIRI	KEYWORD3
@@ -298,6 +310,9 @@ VVB_QSID	KEYWORD3
 VVB_QVFW3	KEYWORD3
 VVB_VERFW	KEYWORD3
 
+#######################################
+# Priority constants
+#######################################
 VC_OUT_PRIO_UTILITY_FIRST	KEYWORD3
 VC_OUT_PRIO_SOLAR_FIRST	KEYWORD3
 VC_OUT_PRIO_SBU	KEYWORD3
@@ -305,11 +320,17 @@ VC_CHG_PRIO_SOLAR_FIRST	KEYWORD3
 VC_CHG_PRIO_SOLAR_UTILITY	KEYWORD3
 VC_CHG_PRIO_SOLAR_ONLY	KEYWORD3
 
+#######################################
+# Battery type constants
+#######################################
 VC_BAT_TYPE_AGM	KEYWORD3
 VC_BAT_TYPE_FLOODED	KEYWORD3
 VC_BAT_TYPE_USER	KEYWORD3
 VC_BAT_TYPE_PYLONTECH	KEYWORD3
 
+#######################################
+# Mode constants
+#######################################
 VC_MODE_POWER_ON	KEYWORD3
 VC_MODE_STANDBY	KEYWORD3
 VC_MODE_LINE	KEYWORD3
@@ -318,6 +339,9 @@ VC_MODE_FAULT	KEYWORD3
 VC_MODE_POWER_SAVING	KEYWORD3
 VC_MODE_SHUTDOWN	KEYWORD3
 
+#######################################
+# Flag constants
+#######################################
 VC_FLAG_BUZZER	KEYWORD3
 VC_FLAG_OVERLOAD_BYPASS	KEYWORD3
 VC_FLAG_SOLAR_FEED_GRID	KEYWORD3
@@ -330,40 +354,41 @@ VC_FLAG_ALARM_PRIMARY	KEYWORD3
 VC_FLAG_FAULT_CODE_REC	KEYWORD3
 
 #######################################
-# Battery types (enum)
+# Battery type enum members
 #######################################
-User	KEYWORD3
-AGM	KEYWORD3
-Flooded	KEYWORD3
-Pylontech	KEYWORD3
-LiFePO4_15S	KEYWORD3
-LiFePO4_16S	KEYWORD3
+VoltronicBatteryType::User	KEYWORD3
+VoltronicBatteryType::AGM	KEYWORD3
+VoltronicBatteryType::Flooded	KEYWORD3
+VoltronicBatteryType::Pylontech	KEYWORD3
+VoltronicBatteryType::LiFePO4_15S	KEYWORD3
+VoltronicBatteryType::LiFePO4_16S	KEYWORD3
 
 #######################################
-# Smart Charger modes (enum)
+# Smart Charger modes
 #######################################
-DISABLED	KEYWORD3
-STANDARD	KEYWORD3
-FAST	KEYWORD3
+MODE_OFF	KEYWORD3
+MODE_STD	KEYWORD3
+MODE_FAST	KEYWORD3
 
 #######################################
-# Power modes (enum)
+# Power modes
 #######################################
-NORMAL	KEYWORD3
-POWER_SAVING	KEYWORD3
-EMERGENCY_MAX	KEYWORD3
-SOLAR_SURPLUS	KEYWORD3
-GRID_SURPLUS	KEYWORD3
-COMBINED_SURPLUS	KEYWORD3
+PM_UNKNOWN	KEYWORD3
+PM_NORMAL	KEYWORD3
+PM_POWER_SAVING	KEYWORD3
+PM_EMERGENCY_MAX	KEYWORD3
+PM_SOLAR_SURPLUS	KEYWORD3
+PM_GRID_SURPLUS	KEYWORD3
+PM_COMBINED_SURPLUS	KEYWORD3
 
 #######################################
-# Languages (enum)
+# Languages
 #######################################
 ENGLISH	KEYWORD3
 ARABIC	KEYWORD3
 
 #######################################
-# Config macros (KEYWORD3)
+# Config macros
 #######################################
 VOLTRONIC_USE_WEB	KEYWORD3
 VOLTRONIC_RESP_BUF_SIZE	KEYWORD3

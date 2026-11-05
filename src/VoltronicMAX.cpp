@@ -1012,9 +1012,21 @@ static const char VHTML_P2[] PROGMEM =
     "<input type='number' id='batVEmpty' value='42.0' step='0.1' "
     "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
     "<label style='font-size:.8rem;color:#6b7280'>Voltage Full (V)</label>"
-    "<input type='number' id='batVFull' value='54.0' step='0.1' "
-    "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
-    "<button onclick='saveBattery()' "
+"<input type='number' id='batVFull' value='54.0' step='0.1' "
+"style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
+"<label style='font-size:.8rem;color:#6b7280'>System Resistance (mΩ)</label>"
+"<select id='batResistance' style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
+"<option value='0'>معطّل (0)</option>"
+"<option value='5'>5 mΩ (LiFePO4 كبيرة)</option>"
+"<option value='8' selected>8 mΩ (LiFePO4 100-200Ah)</option>"
+"<option value='10'>10 mΩ (LiFePO4 صغيرة)</option>"
+"<option value='12'>12 mΩ (AGM جديدة)</option>"
+"<option value='15'>15 mΩ (AGM قديمة)</option>"
+"<option value='20'>20 mΩ (Flooded)</option>"
+"<option value='25'>25 mΩ (بطارية ضعيفة)</option>"
+"<option value='30'>30 mΩ (بطارية سيئة)</option>"
+"</select>"
+"<button onclick='saveBattery()' "
     "style='padding:8px;border:0;background:#16a34a;"
     "color:#fff;border-radius:5px;cursor:pointer;font-weight:600'>Save "
     "Battery</button>"
@@ -1428,18 +1440,11 @@ static const char VHTML_P2[] PROGMEM =
 
     // ═══════════════ Save Battery ═══════════════
     "async function saveBattery(){"
-    "const body='type='+encodeURIComponent($('batType').value)"
-    "+'&cap='+encodeURIComponent($('batCap').value)"
-    "+'&vEmpty='+encodeURIComponent($('batVEmpty').value)"
-    "+'&vFull='+encodeURIComponent($('batVFull').value);"
-    "try{"
-    "const r=await fetch(BASE+'api/battery',{method:'POST',"
-    "headers:{'Content-Type':'application/x-www-form-urlencoded'},body});"
-    "const j=await r.json();"
-    "showMsg(j.ok?('Battery saved ('+j.cap+' Ah)'):('Error: "
-    "'+(j.error||'failed')), j.ok);"
-    "}catch(e){showMsg('Error: '+e.message, false);}"
-    "}"
+"const body='type='+encodeURIComponent($('batType').value)"
+"+'&cap='+encodeURIComponent($('batCap').value)"
+"+'&vEmpty='+encodeURIComponent($('batVEmpty').value)"
+"+'&vFull='+encodeURIComponent($('batVFull').value)"
+"+'&resistance='+encodeURIComponent($('batResistance').value);"
 
     // ═══════════════ Save Smart Charger ═══════════════
     "async function saveSmartCharger(){"
@@ -1482,7 +1487,8 @@ static const char VHTML_P2[] PROGMEM =
     "$('batType').value=s.batType||'User';"
     "$('batCap').value=s.batCap||100;"
     "$('batVEmpty').value=s.batVEmpty||42;"
-    "$('batVFull').value=s.batVFull||54;"
+"$('batVFull').value=s.batVFull||54;"
+"if(s.sysRes_mOhm!==undefined)$('batResistance').value=Math.round(s.sysRes_mOhm);"
     "$('scMode').value=s.scMode||1;"
     "$('scAC').value=s.scAC||40;"
     "$('scTotal').value=s.scTotal||80;"
@@ -1722,6 +1728,7 @@ void VoltronicMAX::_webHandleExecute()
 }
 
 // ─── POST /api/battery ───
+// ─── POST /api/battery ───
 void VoltronicMAX::_webHandleBattery()
 {
   if (!_webRequireAuth())
@@ -1736,17 +1743,30 @@ void VoltronicMAX::_webHandleBattery()
   if (_webServer->hasArg("vFull"))
     battery.setVoltageFull(_webServer->arg("vFull").toFloat());
 
+  // ⚡ systemResistance — يُستقبل بـ mΩ ويُخزَّن بـ Ω
+  if (_webServer->hasArg("resistance"))
+  {
+    float r_mOhm = _webServer->arg("resistance").toFloat();
+    battery.setSystemResistance(r_mOhm / 1000.0f);
+    VLOG("[Web] Resistance set to %.0fmΩ", r_mOhm);
+  }
+
   storage.save(*this);
 
-  char buf[128];
+  char buf[160];
   snprintf_P(buf,
              sizeof(buf),
-             PSTR("{\"ok\":true,\"cap\":%.0f,\"type\":\"%s\"}"),
+             PSTR("{\"ok\":true,\"cap\":%.0f,\"type\":\"%s\","
+                  "\"res_mOhm\":%.0f}"),
              battery.capacityAh(),
-             battery.typeName());
+             battery.typeName(),
+             battery.systemResistance() * 1000.0f);
   _webServer->send(200, "application/json", buf);
 
-  VLOG("[Web] Battery saved: %.0fAh, type=%s\n", battery.capacityAh(), battery.typeName());
+  VLOG("[Web] Battery saved: %.0fAh, type=%s, R=%.1fmΩ\n",
+       battery.capacityAh(),
+       battery.typeName(),
+       battery.systemResistance() * 1000.0f);
 }
 
 // ─── POST /api/smartcharger ───
@@ -1784,29 +1804,36 @@ void VoltronicMAX::_webHandleStatus()
   if (!_webRequireAuth())
     return;
 
-  char buf[768];
+  char buf[1024];
   snprintf_P(buf,
              sizeof(buf),
-             PSTR("{\"batType\":\"%s\",\"batCap\":%.0f,\"batVEmpty\":%.1f,"
-                  "\"batVFull\":%.1f,"
-                  "\"scMode\":%u,\"scAC\":%u,\"scTotal\":%u,\"scFloatAC\":%u,"
-                  "\"scFloatTotal\":%u,"
-                  "\"scTemp\":%u,\"soc\":%.1f,\"soh\":%.1f,\"voltage\":%.2f,"
-                  "\"netPower\":%.0f,"
-                  "\"remKWh\":%.3f,\"stage\":\"%s\",\"status\":\"%s\","
+             PSTR("{\"batType\":\"%s\",\"batCap\":%.0f,"
+                  "\"batVEmpty\":%.1f,\"batVFull\":%.1f,"
+                  "\"scMode\":%u,\"scAC\":%u,\"scTotal\":%u,"
+                  "\"scFloatAC\":%u,\"scFloatTotal\":%u,\"scTemp\":%u,"
+                  "\"soc\":%.1f,\"soh\":%.1f,\"voltage\":%.2f,"
+                  "\"netPower\":%.0f,\"remKWh\":%.3f,"
+                  "\"stage\":\"%s\",\"status\":\"%s\","
                   "\"powerMode\":\"%s\",\"saves\":%u,"
-                  "\"pmEm\":%.0f,\"pmPs\":%.0f,\"pmRec\":%.0f,\"pmSurp\":%.0f,"
-                  "\"pmGridV\":%.0f}"),
+                  "\"pmEm\":%.0f,\"pmPs\":%.0f,\"pmRec\":%.0f,"
+                  "\"pmSurp\":%.0f,\"pmGridV\":%.0f,"
+                  "\"rawVolt\":%.2f,\"compVolt\":%.2f,\"smoothVolt\":%.2f,"
+                  "\"sysRes\":%.4f,\"emaAlpha\":%.2f,"
+                  "\"sysRes_mOhm\":%.0f,"
+                  "\"vOutOfRange\":%s}"),
+             // ─── Battery ───
              battery.typeName(),
              battery.capacityAh(),
              battery.voltageEmpty(),
              battery.voltageFull(),
+             // ─── Smart Charger ───
              (unsigned)smartCharger.mode(),
              smartCharger.targetAC(),
              smartCharger.targetTotal(),
              smartCharger.floatAC(),
              smartCharger.floatTotal(),
              smartCharger.tempProtectC(),
+             // ─── Battery status ───
              battery.soc(),
              battery.soh(),
              battery.voltage(),
@@ -1814,17 +1841,25 @@ void VoltronicMAX::_webHandleStatus()
              battery.remainingKWh(),
              smartCharger.stage(),
              smartCharger.status(),
+             // ─── Power Mode ───
              powerMode.modeNameEn(),
              storage.saves(),
              powerMode.socEmergency(),
              powerMode.socPowerSaving(),
              powerMode.socRecover(),
              powerMode.socSurplus(),
-             powerMode.gridMinVoltage());
+             powerMode.gridMinVoltage(),
+             // ─── ⚡ الحقول الجديدة ───
+             battery.rawVoltage(),
+             battery.compensatedVoltage(),
+             battery.voltage(),
+             battery.systemResistance(),
+             battery.voltageSmoothing(),
+             battery.systemResistance() * 1000.0f,
+             battery.voltageOutOfRange() ? "true" : "false");
 
   _webServer->send(200, "application/json", buf);
 }
-
 // ─── POST /api/powermode ───
 void VoltronicMAX::_webHandlePowerMode()
 {

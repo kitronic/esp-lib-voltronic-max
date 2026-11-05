@@ -42,7 +42,7 @@
   "platforms": "*",
   "headers": "VoltronicMAX.h",
   "examples": [
-    "examples/*.ino"
+    "examples/*"
   ],
   "export": {
     "include": [

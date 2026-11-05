@@ -1,0 +1,6875 @@
+# Project Structure (Full Tree)
+
+```
+├── examples
+│   ├── 01_BasicRead
+│   │   └── 01_BasicRead.ino
+│   ├── 02_DeviceInfo
+│   │   └── 02_DeviceInfo.ino
+│   ├── 03_GeneralStatus
+│   │   └── 03_GeneralStatus.ino
+│   ├── 04_GeneralStatus2
+│   │   └── 04_GeneralStatus2.ino
+│   ├── 05_Rating
+│   │   └── 05_Rating.ino
+│   ├── 06_Mode
+│   │   └── 06_Mode.ino
+│   ├── 07_Warnings
+│   │   └── 07_Warnings.ino
+│   ├── 08_Flags
+│   │   └── 08_Flags.ino
+│   ├── 09_Defaults
+│   │   └── 09_Defaults.ino
+│   ├── 10_Parallel
+│   │   └── 10_Parallel.ino
+│   ├── 11_BatteryEqualization
+│   │   └── 11_BatteryEqualization.ino
+│   ├── 12_Led
+│   │   └── 12_Led.ino
+│   ├── 13_TimeOrder
+│   │   └── 13_TimeOrder.ino
+│   ├── 14_BatteryControl
+│   │   └── 14_BatteryControl.ino
+│   ├── 15_SelectableValues
+│   │   └── 15_SelectableValues.ino
+│   ├── 16_AllSettings
+│   │   └── 16_AllSettings.ino
+│   ├── 17_NonBlocking
+│   │   └── 17_NonBlocking.ino
+│   ├── 18_AsyncPoller
+│   │   └── 18_AsyncPoller.ino
+│   ├── 19_InternalPolling
+│   │   └── 19_InternalPolling.ino
+│   ├── 20_MQTT_Publish
+│   │   └── 20_MQTT_Publish.ino
+│   ├── 20_WebConsoleESP32
+│   │   └── 20_WebConsoleESP32.ino
+│   ├── 21_HomeAssistant
+│   │   └── 21_HomeAssistant.ino
+│   ├── 22_WebDashboard
+│   │   └── 22_WebDashboard.ino
+│   └── 23_WebConsole
+│       └── 23_WebConsole.ino
+├── src
+│   ├── VoltronicBattery.cpp
+│   ├── VoltronicBattery.h
+│   ├── VoltronicCommands.h
+│   ├── VoltronicConfig.h
+│   ├── VoltronicCRC.h
+│   ├── VoltronicData.h
+│   ├── VoltronicLang.cpp
+│   ├── VoltronicLang.h
+│   ├── VoltronicLog.h
+│   ├── VoltronicMAX.cpp
+│   ├── VoltronicMAX.h
+│   ├── VoltronicMAXCompat.h
+│   ├── VoltronicParser.cpp
+│   ├── VoltronicParser.h
+│   ├── VoltronicPowerMode.cpp
+│   ├── VoltronicPowerMode.h
+│   ├── VoltronicPrint.h
+│   ├── VoltronicSmartCharger.cpp
+│   ├── VoltronicSmartCharger.h
+│   ├── VoltronicStorage.cpp
+│   ├── VoltronicStorage.h
+│   ├── VoltronicTransport.h
+│   └── VoltronicTypes.h
+├── test
+│   └── test_native
+│       ├── Arduino.cpp
+│       ├── Arduino.h
+│       ├── test_native.cpp
+│       ├── test_native.h
+│       └── test.exe
+├── .editorconfig
+├── .gitignore
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── keywords.txt
+├── library.json
+├── library.properties
+├── LICENSE
+├── README.md
+└── STRUCTURE.md
+```
+
+# Statistics
+
+- **.cpp**: 7 files (62.3%)
+- **.h**: 16 files (37.7%)
+
+# Files Content (23)
+
+## src/VoltronicBattery.cpp
+
+```cpp
+#include "VoltronicBattery.h"
+#include <math.h>
+
+// ═══════════════════════════════════════════════════════════════
+//  منحنيات الجهد → SOC لكل نوع بطارية
+//  (piecewise linear)
+// ═══════════════════════════════════════════════════════════════
+
+// LiFePO4 15S (48V, 15×3.2V)
+static const float CURVE_LIFEPO4_15S[][2] = {
+    {42.0f, 0},
+    {46.0f, 10},
+    {48.0f, 20},
+    {49.5f, 30},
+    {50.0f, 40},
+    {50.5f, 50},
+    {51.0f, 60},
+    {51.5f, 70},
+    {52.0f, 80},
+    {53.0f, 90},
+    {54.0f, 100},
+};
+
+// LiFePO4 16S (51.2V, 16×3.2V)
+static const float CURVE_LIFEPO4_16S[][2] = {
+    {44.8f, 0},
+    {49.1f, 10},
+    {51.2f, 20},
+    {52.8f, 30},
+    {53.3f, 40},
+    {53.9f, 50},
+    {54.4f, 60},
+    {54.9f, 70},
+    {55.5f, 80},
+    {56.5f, 90},
+    {57.6f, 100},
+};
+
+// Lead-acid (AGM/Flooded) 48V — جهد راحة
+static const float CURVE_LEADACID_48V[][2] = {
+    {45.6f, 0},
+    {46.8f, 10},
+    {47.5f, 20},
+    {48.0f, 30},
+    {48.4f, 40},
+    {48.8f, 50},
+    {49.2f, 60},
+    {49.6f, 70},
+    {50.0f, 80},
+    {50.4f, 90},
+    {50.9f, 100},
+};
+
+// ═══════════════════════════════════════════════════════════════
+VoltronicBattery::VoltronicBattery()
+{
+  setType(VoltronicBatteryType::User);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  الإعدادات
+// ═══════════════════════════════════════════════════════════════
+void VoltronicBattery::setType(VoltronicBatteryType t)
+{
+  _type = t;
+  _applyDefaultsForType();
+}
+
+void VoltronicBattery::_applyDefaultsForType()
+{
+  switch (_type)
+  {
+    case VoltronicBatteryType::LiFePO4_15S:
+      _nominalV = 48.0f;
+      _voltageEmpty = 42.0f;
+      _voltageFull = 54.0f;
+      break;
+    case VoltronicBatteryType::LiFePO4_16S:
+    case VoltronicBatteryType::Pylontech:
+      _nominalV = 51.2f;
+      _voltageEmpty = 44.8f;
+      _voltageFull = 57.6f;
+      break;
+    case VoltronicBatteryType::AGM:
+    case VoltronicBatteryType::Flooded:
+      _nominalV = 48.0f;
+      _voltageEmpty = 45.6f;
+      _voltageFull = 50.9f;
+      break;
+    default:
+      // User — لا تغيير
+      break;
+  }
+}
+
+void VoltronicBattery::setCapacity(float ah)
+{
+  if (ah < 10.0f)
+    ah = 10.0f;
+  if (ah > 2000.0f)
+    ah = 2000.0f;
+  _capacityAh = ah;
+}
+
+void VoltronicBattery::setVoltageEmpty(float v)
+{
+  _voltageEmpty = v;
+}
+void VoltronicBattery::setVoltageFull(float v)
+{
+  _voltageFull = v;
+}
+void VoltronicBattery::setNominalVoltage(float v)
+{
+  _nominalV = v;
+}
+void VoltronicBattery::setInitialSoh(float s)
+{
+  _soh = constrain(s, 0.0f, 100.0f);
+}
+void VoltronicBattery::setCycleCount(uint16_t c)
+{
+  _cycleCount = c;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  التحديث
+// ═══════════════════════════════════════════════════════════════
+void VoltronicBattery::update(const QPIGSData& g)
+{
+  if (!_enabled)
+    return;
+
+  _voltage = g.batteryVoltage();
+  _chargeCurrent = g.batteryChargingCurrent;
+  _dischargeCurrent = g.batteryDischargeCurrent;
+
+  // ─── صافي التيار والقدرة ───
+  _netCurrent = (float)_chargeCurrent - (float)_dischargeCurrent;
+  _netPower = _voltage * _netCurrent;
+
+  // ─── SOC محسوب من الجهد ───
+  _soc = _socFromVoltage(_voltage);
+
+  // ─── الطاقة المتبقية ───
+  _remainingWh = (_soc / 100.0f) * _capacityAh * _voltage;
+
+  // ─── C-Rate ───
+  _cRate = fabsf(_netCurrent) / _capacityAh;
+
+  // ─── ساعات التفريغ ───
+  if (_netPower < -5.0f)
+  {
+    _remainingHours = _remainingWh / (-_netPower);
+  }
+  else
+  {
+    _remainingHours = 0.0f;
+  }
+
+  // ─── ساعات حتى الامتلاء ───
+  if (_netCurrent > 0.5f)
+  {
+    float remainingAh = (1.0f - _soc / 100.0f) * _capacityAh;
+    _timeToFull = remainingAh / _netCurrent;
+  }
+  else
+  {
+    _timeToFull = 0.0f;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SOC من الجهد
+// ═══════════════════════════════════════════════════════════════
+float VoltronicBattery::_socFromVoltage(float v) const
+{
+  const float (*curve)[2] = nullptr;
+  size_t n = 0;
+
+  switch (_type)
+  {
+    case VoltronicBatteryType::LiFePO4_15S:
+      curve = CURVE_LIFEPO4_15S;
+      n = sizeof(CURVE_LIFEPO4_15S) / sizeof(CURVE_LIFEPO4_15S[0]);
+      break;
+    case VoltronicBatteryType::LiFePO4_16S:
+    case VoltronicBatteryType::Pylontech:
+      curve = CURVE_LIFEPO4_16S;
+      n = sizeof(CURVE_LIFEPO4_16S) / sizeof(CURVE_LIFEPO4_16S[0]);
+      break;
+    case VoltronicBatteryType::AGM:
+    case VoltronicBatteryType::Flooded:
+      curve = CURVE_LEADACID_48V;
+      n = sizeof(CURVE_LEADACID_48V) / sizeof(CURVE_LEADACID_48V[0]);
+      break;
+    default:
+      // User — خطي
+      if (v <= _voltageEmpty)
+        return 0.0f;
+      if (v >= _voltageFull)
+        return 100.0f;
+      return (v - _voltageEmpty) / (_voltageFull - _voltageEmpty) * 100.0f;
+  }
+
+  if (v <= curve[0][0])
+    return 0.0f;
+  if (v >= curve[n - 1][0])
+    return 100.0f;
+
+  for (size_t i = 0; i < n - 1; i++)
+  {
+    float v1 = curve[i][0];
+    float v2 = curve[i + 1][0];
+    if (v >= v1 && v <= v2)
+    {
+      float soc1 = curve[i][1];
+      float soc2 = curve[i + 1][1];
+      float t = (v - v1) / (v2 - v1);
+      return soc1 + t * (soc2 - soc1);
+    }
+  }
+  return 0.0f;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Helpers
+// ═══════════════════════════════════════════════════════════════
+const char* VoltronicBattery::status() const
+{
+  if (_netCurrent > 0.5f)
+    return "Charging";
+  if (_netCurrent < -0.5f)
+    return "Discharging";
+  return "Idle";
+}
+
+const char* VoltronicBattery::typeName() const
+{
+  return typeToString(_type);
+}
+
+const char* VoltronicBattery::typeToString(VoltronicBatteryType t)
+{
+  switch (t)
+  {
+    case VoltronicBatteryType::User:
+      return "User";
+    case VoltronicBatteryType::AGM:
+      return "AGM";
+    case VoltronicBatteryType::Flooded:
+      return "Flooded";
+    case VoltronicBatteryType::Pylontech:
+      return "Pylontech";
+    case VoltronicBatteryType::LiFePO4_15S:
+      return "LiFePO4 15S";
+    case VoltronicBatteryType::LiFePO4_16S:
+      return "LiFePO4 16S";
+    default:
+      return "Unknown";
+  }
+}
+
+VoltronicBatteryType VoltronicBattery::typeFromString(const char* s)
+{
+  if (!s)
+    return VoltronicBatteryType::User;
+  if (strcmp(s, "AGM") == 0)
+    return VoltronicBatteryType::AGM;
+  if (strcmp(s, "Flooded") == 0)
+    return VoltronicBatteryType::Flooded;
+  if (strcmp(s, "Pylontech") == 0)
+    return VoltronicBatteryType::Pylontech;
+  if (strcmp(s, "LiFePO4 15S") == 0)
+    return VoltronicBatteryType::LiFePO4_15S;
+  if (strcmp(s, "LiFePO4 16S") == 0)
+    return VoltronicBatteryType::LiFePO4_16S;
+  return VoltronicBatteryType::User;
+}
+```
+
+## src/VoltronicBattery.h
+
+```h
+#pragma once
+#include <Arduino.h>
+#include "VoltronicTypes.h"
+
+// ═══════════════════════════════════════════════════════════════
+//  VoltronicBattery — حساب SOC/SOH/الطاقة من قراءات QPIGS
+//  أنواع البطاريات المدعومة + إمكانية تخصيص كامل
+// ═══════════════════════════════════════════════════════════════
+
+enum class VoltronicBatteryType : uint8_t
+{
+  User = 0,         // مخصص (خطي بين empty/full)
+  AGM = 1,          // Lead-acid AGM 48V
+  Flooded = 2,      // Lead-acid Flooded 48V
+  Pylontech = 3,    // LiFePO4 15S (Pylontech)
+  LiFePO4_15S = 4,  // LiFePO4 15S عام (48V)
+  LiFePO4_16S = 5,  // LiFePO4 16S (51.2V)
+};
+
+class VoltronicBattery
+{
+ public:
+  VoltronicBattery();
+
+  // ═══ الإعدادات (من المستخدم) ═══
+  void setType(VoltronicBatteryType type);
+  void setCapacity(float ah);     // 10..2000 Ah
+  void setVoltageEmpty(float v);  // SOC = 0%
+  void setVoltageFull(float v);   // SOC = 100%
+  void setNominalVoltage(float v);
+  void setInitialSoh(float soh);  // 0..100
+  void setCycleCount(uint16_t c);
+  void enable(bool en)
+  {
+    _enabled = en;
+  }
+
+  // ═══ التحديث (تلقائي بعد QPIGS) ═══
+  void update(const QPIGSData& g);
+
+  // ═══ النتائج ═══
+  float soc() const
+  {
+    return _soc;
+  }  // %
+  float soh() const
+  {
+    return _soh;
+  }  // %
+  float netCurrent() const
+  {
+    return _netCurrent;
+  }  // A
+  float netPower() const
+  {
+    return _netPower;
+  }  // W
+  float remainingWh() const
+  {
+    return _remainingWh;
+  }  // Wh
+  float remainingKWh() const
+  {
+    return _remainingWh / 1000.0f;
+  }
+  float remainingHours() const
+  {
+    return _remainingHours;
+  }
+  float timeToFull() const
+  {
+    return _timeToFull;
+  }
+  float cRate() const
+  {
+    return _cRate;
+  }  // C
+  float voltage() const
+  {
+    return _voltage;
+  }
+  uint16_t chargeCurrent() const
+  {
+    return _chargeCurrent;
+  }
+  uint16_t dischargeCurrent() const
+  {
+    return _dischargeCurrent;
+  }
+
+  // ═══ معلومات ═══
+  const char* status() const;  // Charging / Discharging / Idle
+  const char* typeName() const;
+  VoltronicBatteryType type() const
+  {
+    return _type;
+  }
+  float capacityAh() const
+  {
+    return _capacityAh;
+  }
+  float nominalV() const
+  {
+    return _nominalV;
+  }
+  float voltageEmpty() const
+  {
+    return _voltageEmpty;
+  }
+  float voltageFull() const
+  {
+    return _voltageFull;
+  }
+  uint16_t cycleCount() const
+  {
+    return _cycleCount;
+  }
+  bool enabled() const
+  {
+    return _enabled;
+  }
+
+  // ═══ اسم النوع كنص (للواجهات) ═══
+  static const char* typeToString(VoltronicBatteryType t);
+  static VoltronicBatteryType typeFromString(const char* s);
+
+ private:
+  // ─── الإعدادات ───
+  VoltronicBatteryType _type = VoltronicBatteryType::User;
+  bool _enabled = true;
+  float _capacityAh = 100.0f;
+  float _nominalV = 48.0f;
+  float _voltageEmpty = 42.0f;
+  float _voltageFull = 54.0f;
+  float _soh = 100.0f;
+  uint16_t _cycleCount = 0;
+
+  // ─── القراءات ───
+  float _voltage = 0;
+  uint16_t _chargeCurrent = 0;
+  uint16_t _dischargeCurrent = 0;
+
+  // ─── النتائج ───
+  float _soc = 0;
+  float _netCurrent = 0;
+  float _netPower = 0;
+  float _remainingWh = 0;
+  float _remainingHours = 0;
+  float _timeToFull = 0;
+  float _cRate = 0;
+
+  void _applyDefaultsForType();
+  float _socFromVoltage(float v) const;
+};
+```
+
+## src/VoltronicCommands.h
+
+```h
+#pragma once
+
+// ═══════════════════════════════════════════════════════════════
+//  PI30 ASCII Commands — Voltronic Axpert MAX / PIP / MPP
+//
+//  جميع الأوامر تُرسل بدون CRC — المكتبة تضيف CRC-16/XMODEM + CR
+//  البروتوكول: 2400 8N1 (بمعظم الأجهزة)
+//
+//  المراجع:
+//    - Voltronic Power "PI30 Protocol" (rev 3.x)
+//    - Axpert MAX HV7.2kW / LV5kW firmware notes
+// ═══════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+//  Inquiry Commands (25)
+// ═══════════════════════════════════════════════════════════════
+#define VC_QPI "QPI"            // Protocol ID
+#define VC_QID "QID"            // Serial number (short)
+#define VC_QSID "QSID"          // Serial number (long / 4-digit)
+#define VC_QVFW "QVFW"          // Main CPU firmware version
+#define VC_QVFW3 "QVFW3"        // Secondary CPU firmware version
+#define VC_VERFW "VERFW:"       // Bluetooth FW (with ':' suffix)
+#define VC_QPIRI "QPIRI"        // Rated information
+#define VC_QFLAG "QFLAG"        // Device status flags
+#define VC_QPIGS "QPIGS"        // General status (live data)
+#define VC_QPIGS2 "QPIGS2"      // General status 2 (PV2)
+#define VC_QPGS "QPGS"          // Parallel info (needs index: QPGS0..n)
+#define VC_QMOD "QMOD"          // Working mode
+#define VC_QPIWS "QPIWS"        // Warning status (36 bits)
+#define VC_QDI "QDI"            // Default settings
+#define VC_QMCHGCR "QMCHGCR"    // Max charging current selectable
+#define VC_QMUCHGCR "QMUCHGCR"  // Max utility charging current selectable
+#define VC_QOPPT "QOPPT"        // Output source priority time order
+#define VC_QCHPT "QCHPT"        // Charger source priority time order
+#define VC_QT "QT"              // Current device time
+#define VC_QBEQI "QBEQI"        // Battery equalization info
+#define VC_QMN "QMN"            // Model name
+#define VC_QGMN "QGMN"          // General model name
+#define VC_QBOOT "QBOOT"        // DSP bootstrap presence
+#define VC_QBATCD "QBATCD"      // Battery control status
+#define VC_QLED "QLED"          // LED status/effect
+
+// ═══════════════════════════════════════════════════════════════
+//  Setting Commands (30)
+// ═══════════════════════════════════════════════════════════════
+
+// ─── Flags ───
+#define VC_PE "PE"  // Enable flag  (e.g. "PEa")
+#define VC_PD "PD"  // Disable flag (e.g. "PDa")
+#define VC_PF "PF"  // Factory reset / restore defaults
+
+// ─── Charging / discharging ───
+#define VC_MNCHGC "MNCHGC"            // Max charging current  (3 digits: 000..)
+#define VC_MUCHGC "MUCHGC"            // Max utility charging  (3 digits)
+#define VC_PBATMAXDISC "PBATMAXDISC"  // Max discharging current (3 digits)
+#define VC_PCVT "PCVT"                // Max CV charging time   (minutes)
+
+// ─── Output ───
+#define VC_F "F"        // Output frequency     (2 digits: 50/60)
+#define VC_V "V"        // Output voltage       (3 digits: 220/230/240)
+#define VC_POP "POP"    // Output source priority (2 digits: 00/01/02)
+#define VC_POPM "POPM"  // Output mode            (2 digits)
+
+// ─── Battery ───
+#define VC_PBCV "PBCV"  // Battery recharge voltage  (V.d)
+#define VC_PBDV "PBDV"  // Battery redischarge voltage
+#define VC_PSDV "PSDV"  // Battery cutoff voltage
+#define VC_PCVV "PCVV"  // Battery CV (bulk) voltage
+#define VC_PBFT "PBFT"  // Battery float voltage
+#define VC_PBT "PBT"    // Battery type (2 digits: 00..03)
+
+// ─── AC input / charger ───
+#define VC_PCP "PCP"    // Charger source priority (2 digits: 01..03)
+#define VC_PGR "PGR"    // Grid working range (2 digits)
+#define VC_PPCP "PPCP"  // Parallel charger priority (M PP)
+
+// ─── Energy / log ───
+#define VC_RTEY "RTEY"  // Reset PV energy / total energy
+#define VC_RTDL "RTDL"  // Erase data log
+
+// ─── Battery equalization ───
+#define VC_PBEQE "PBEQE"    // Equalization enable   (1 digit)
+#define VC_PBEQT "PBEQT"    // Equalization time     (3 digits, minutes)
+#define VC_PBEQP "PBEQP"    // Equalization period   (3 digits, days)
+#define VC_PBEQV "PBEQV"    // Equalization voltage  (V.dd)
+#define VC_PBEQOT "PBEQOT"  // Equalization over time
+#define VC_PBEQA "PBEQA"    // Activate equalization now (1 digit)
+
+// ─── Date / time / battery control ───
+#define VC_DAT "DAT"        // Set date/time (yymmddhhmmss)
+#define VC_PBATCD "PBATCD"  // Battery control (3 digits: a b c)
+
+// ═══════════════════════════════════════════════════════════════
+//  Mode characters (QMOD response)
+// ═══════════════════════════════════════════════════════════════
+#define VC_MODE_POWER_ON 'P'
+#define VC_MODE_STANDBY 'S'
+#define VC_MODE_LINE 'L'
+#define VC_MODE_BATTERY 'B'
+#define VC_MODE_FAULT 'F'
+#define VC_MODE_POWER_SAVING 'H'
+#define VC_MODE_SHUTDOWN 'D'
+
+// ═══════════════════════════════════════════════════════════════
+//  Priority values
+// ═══════════════════════════════════════════════════════════════
+#define VC_OUT_PRIO_UTILITY_FIRST 0
+#define VC_OUT_PRIO_SOLAR_FIRST 1
+#define VC_OUT_PRIO_SBU 2
+
+#define VC_CHG_PRIO_SOLAR_FIRST 1
+#define VC_CHG_PRIO_SOLAR_UTILITY 2
+#define VC_CHG_PRIO_SOLAR_ONLY 3
+
+// ═══════════════════════════════════════════════════════════════
+//  Battery type values (PBT)
+// ═══════════════════════════════════════════════════════════════
+#define VC_BAT_TYPE_AGM 0
+#define VC_BAT_TYPE_FLOODED 1
+#define VC_BAT_TYPE_USER 2
+#define VC_BAT_TYPE_PYLONTECH 3
+
+// ═══════════════════════════════════════════════════════════════
+//  Flag characters (PEx / PDx)
+//
+//  الاستعمال: setFlag('a') → "PEa"  |  clearFlag('a') → "PDa"
+// ═══════════════════════════════════════════════════════════════
+#define VC_FLAG_BUZZER 'a'            // Buzzer on/off
+#define VC_FLAG_OVERLOAD_BYPASS 'b'   // Overload bypass
+#define VC_FLAG_SOLAR_FEED_GRID 'd'   // Solar feed to grid
+#define VC_FLAG_POWER_SAVING 'j'      // Power saving mode
+#define VC_FLAG_LCD_DEFAULT 'k'       // LCD returns to default after 1min
+#define VC_FLAG_OVERLOAD_RESTART 'u'  // Overload auto-restart
+#define VC_FLAG_OVERTEMP_RESTART 'v'  // Over-temp auto-restart
+#define VC_FLAG_BACKLIGHT 'x'         // LCD backlight on/off
+#define VC_FLAG_ALARM_PRIMARY 'y'     // Alarm on primary source interrupt
+#define VC_FLAG_FAULT_CODE_REC 'z'    // Fault code recording
+```
+
+## src/VoltronicConfig.h
+
+```h
+#pragma once
+#include <Arduino.h>
+
+// ═══════════════════════════════════════════════════════════════
+//  Compile-time configuration
+//  كل القيم قابلة للتجاوز من السكتش قبل الـ include
+// ═══════════════════════════════════════════════════════════════
+
+// ─── Buffer sizes ───
+#ifndef VOLTRONIC_RESP_BUF_SIZE
+#  define VOLTRONIC_RESP_BUF_SIZE 160  // أطول رد PI30 ~ 120 بايت
+#endif
+
+#ifndef VOLTRONIC_CMD_BUF_SIZE
+#  define VOLTRONIC_CMD_BUF_SIZE 32  // DAT يحتاج 17، مع هامش آمن
+#endif
+
+// ─── Retries ───
+#ifndef VOLTRONIC_MAX_RETRIES
+#  define VOLTRONIC_MAX_RETRIES 2
+#endif
+
+// ─── Serial defaults ───
+#ifndef VOLTRONIC_DEFAULT_BAUD
+#  define VOLTRONIC_DEFAULT_BAUD 2400
+#endif
+
+#ifndef VOLTRONIC_DEFAULT_TIMEOUT_MS
+#  define VOLTRONIC_DEFAULT_TIMEOUT_MS 800
+#endif
+
+// ─── Behavior flags (compile-time defaults) ───
+#ifndef VOLTRONIC_CRC_ESCAPE
+#  define VOLTRONIC_CRC_ESCAPE 1
+#endif
+
+#ifndef VOLTRONIC_FILTER_PRINTABLE
+#  define VOLTRONIC_FILTER_PRINTABLE 1
+#endif
+
+#ifndef VOLTRONIC_YIELD_IN_READ
+#  define VOLTRONIC_YIELD_IN_READ 1
+#endif
+
+// ═══════════════════════════════════════════════════════════════
+//  Runtime configuration
+//
+//  ⚠️ ملاحظة مهمة: المكتبة لا تهيّئ Serial تلقائياً
+//  لأن Stream مجردة (abstract) وما فيها begin(). المستخدم لازم:
+//    SoftwareSerial invSerial(rx, tx);
+//    invSerial.begin(cfg.baud);
+//    inverter.begin(cfg);
+//  أو على ESP32:
+//    Serial2.begin(cfg.baud, SERIAL_8N1, rx, tx);
+//    inverter.begin(cfg);
+// ═══════════════════════════════════════════════════════════════
+struct VoltronicConfig
+{
+  // ─── UART ───
+  uint32_t baud = VOLTRONIC_DEFAULT_BAUD;
+
+  // ─── Transaction ───
+  uint16_t responseTimeoutMs = VOLTRONIC_DEFAULT_TIMEOUT_MS;
+  uint8_t retries = VOLTRONIC_MAX_RETRIES;
+
+  // ─── Pins (informational only — لا تُستخدم للتهيئة) ───
+  int8_t rxPin = -1;
+  int8_t txPin = -1;
+
+  // ─── Behavior ───
+  bool applyCrcEscape = (VOLTRONIC_CRC_ESCAPE != 0);
+  bool filterPrintable = (VOLTRONIC_FILTER_PRINTABLE != 0);
+  bool yieldDuringRead = (VOLTRONIC_YIELD_IN_READ != 0);
+  bool clearBufferBeforeSend = true;
+
+  // ─── منشئ للقيم المخصصة ───
+  VoltronicConfig() = default;
+
+  VoltronicConfig(uint32_t baudRate, uint16_t timeoutMs, uint8_t retryCount)
+    : baud(baudRate)
+    , responseTimeoutMs(timeoutMs)
+    , retries(retryCount)
+  {
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  Poll schedule — non-blocking polling
+//  القيم بالميلي ثانية. 0 = معطّل
+// ═══════════════════════════════════════════════════════════════
+struct VoltronicPollSchedule
+{
+  uint16_t qpigsMs = 2000;   // QPIGS
+  uint16_t qpigs2Ms = 2000;  // QPIGS2
+  uint16_t qpiriMs = 60000;  // QPIRI
+  uint16_t qmodMs = 5000;    // QMOD
+  uint16_t qpiwsMs = 30000;  // QPIWS
+  uint16_t qflagMs = 0;      // QFLAG  (معطّل افتراضياً)
+  uint16_t qidMs = 0;        // QID    (معطّل افتراضياً)
+  uint16_t qbeqiMs = 0;      // QBEQI  (معطّل افتراضياً)
+  uint16_t qbatcdMs = 0;     // QBATCD (معطّل افتراضياً)
+};
+```
+
+## src/VoltronicCRC.h
+
+```h
+#pragma once
+
+// ═══════════════════════════════════════════════════════════════
+//  CRC-16/XMODEM + Voltronic escape quirk
+//
+//  الخصائص:
+//    - Polynomial : 0x1021 (CCITT)
+//    - Init       : 0x0000
+//    - Reflect in : No
+//    - Reflect out: No
+//    - XorOut     : 0x0000
+//
+//  ⚠️ ملاحظة: هذا الملف لا يعتمد على Arduino.h —
+//  يشتغل في native tests مباشرة بدون mock.
+// ═══════════════════════════════════════════════════════════════
+
+#include <stddef.h>
+#include <stdint.h>
+
+// ─── ثوابت CRC ───
+namespace VoltronicCRCDetail
+{
+constexpr uint16_t POLY = 0x1021;
+constexpr uint16_t INIT = 0x0000;
+
+// بايتات تُهربها بعض الأجهزة (تُزاد +1)
+constexpr uint8_t ESC_0A = 0x0A;  // LF
+constexpr uint8_t ESC_0D = 0x0D;  // CR
+constexpr uint8_t ESC_28 = 0x28;  // '('
+
+// القيم بعد التهريب
+constexpr uint8_t UNESC_0B = 0x0B;
+constexpr uint8_t UNESC_0E = 0x0E;
+constexpr uint8_t UNESC_29 = 0x29;
+}  // namespace VoltronicCRCDetail
+
+// ═══════════════════════════════════════════════════════════════
+//  CRC-16/XMODEM — حساب لكل الـ buffer
+// ═══════════════════════════════════════════════════════════════
+inline uint16_t voltronicCRC(const uint8_t* data, size_t len)
+{
+  uint16_t crc = VoltronicCRCDetail::INIT;
+  for (size_t i = 0; i < len; i++)
+  {
+    crc ^= (uint16_t)data[i] << 8;
+    for (uint8_t b = 0; b < 8; b++)
+    {
+      if (crc & 0x8000)
+        crc = (uint16_t)((crc << 1) ^ VoltronicCRCDetail::POLY);
+      else
+        crc = (uint16_t)(crc << 1);
+    }
+  }
+  return crc;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CRC تزايدي — لمستخدمين يبنون الفريم بايت بايت
+//  الاستعمال:
+//    uint16_t c = 0;
+//    c = voltronicCRCUpdate(c, byte);
+//    c = voltronicCRCUpdate(c, byte2);
+// ═══════════════════════════════════════════════════════════════
+inline uint16_t voltronicCRCUpdate(uint16_t crc, uint8_t byte)
+{
+  crc ^= (uint16_t)byte << 8;
+  for (uint8_t b = 0; b < 8; b++)
+  {
+    if (crc & 0x8000)
+      crc = (uint16_t)((crc << 1) ^ VoltronicCRCDetail::POLY);
+    else
+      crc = (uint16_t)(crc << 1);
+  }
+  return crc;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Voltronic quirk — escape / unescape
+//
+//  بعض أجهزة Voltronic ترفض بايتات CRC إذا كانت تساوي:
+//    0x0A (LF) — لأنها تشبه نهاية سطر
+//    0x0D (CR) — لأنها نهاية فريم PI30
+//    0x28 ( '(') — لأنها بداية payload
+//
+//  الحل: نزيد البايت +1
+// ═══════════════════════════════════════════════════════════════
+inline uint8_t voltronicEscapeByte(uint8_t b)
+{
+  if (b == VoltronicCRCDetail::ESC_0A || b == VoltronicCRCDetail::ESC_0D ||
+      b == VoltronicCRCDetail::ESC_28)
+    return (uint8_t)(b + 1);
+  return b;
+}
+
+inline uint8_t voltronicUnescapeByte(uint8_t b)
+{
+  if (b == VoltronicCRCDetail::UNESC_0B || b == VoltronicCRCDetail::UNESC_0E ||
+      b == VoltronicCRCDetail::UNESC_29)
+    return (uint8_t)(b - 1);
+  return b;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  تحويل CRC إلى بايتين (Hi, Lo) مع خيار التهريب
+// ═══════════════════════════════════════════════════════════════
+inline void voltronicCRCBytes(uint16_t crc, uint8_t& hi, uint8_t& lo, bool applyEscape)
+{
+  hi = (uint8_t)((crc >> 8) & 0xFF);
+  lo = (uint8_t)(crc & 0xFF);
+  if (applyEscape)
+  {
+    hi = voltronicEscapeByte(hi);
+    lo = voltronicEscapeByte(lo);
+  }
+}
+```
+
+## src/VoltronicData.h
+
+```h
+#pragma once
+#include <Arduino.h>
+
+// ===== QPIGS =====
+struct InverterData
+{
+  // Grid
+  float gridVoltage = 0;    // V
+  float gridFrequency = 0;  // Hz
+
+  // AC Output
+  float acOutputVoltage = 0;           // V
+  float acOutputFrequency = 0;         // Hz
+  uint32_t acOutputApparentPower = 0;  // VA
+  uint32_t acOutputActivePower = 0;    // W
+  uint8_t loadPercent = 0;             // %
+
+  // DC Bus
+  uint16_t busVoltage = 0;  // V
+
+  // Battery
+  float batteryVoltage = 0;                  // V
+  uint16_t batteryChargingCurrent = 0;       // A
+  uint8_t batteryCapacity = 0;               // %
+  uint16_t batteryDischargeCurrent = 0;      // A
+  uint16_t batteryVoltageOffsetForFans = 0;  // 10mV
+  uint8_t eepromVersion = 0;
+
+  // Thermal
+  uint16_t inverterHeatSinkTemperature = 0;  // °C
+
+  // PV
+  float pv1InputCurrent = 0;      // A
+  float pv1InputVoltage = 0;      // V
+  uint16_t pv1ChargingPower = 0;  // W
+  float pv2InputCurrent = 0;      // A (QPIGS2)
+  float pv2InputVoltage = 0;      // V (QPIGS2)
+  uint16_t pv2ChargingPower = 0;  // W (QPIGS2)
+
+  // SCC
+  float sccBatteryVoltage = 0;  // V
+
+  // Device status (8 bits from QPIGS)
+  uint8_t deviceStatusByte = 0;
+  uint8_t deviceStatusByte2 = 0;  // 3 bits from QPIGS2
+
+  // Grid feed
+  uint8_t solarFeedToGridStatus = 0;
+  uint16_t solarFeedToGridPower = 0;  // W
+  uint8_t countryRegulation = 0;
+
+  // Mode
+  char mode = ' ';
+
+  // Warnings
+  uint32_t warnings = 0;
+
+  bool qpigsValid = false;
+  bool qpigs2Valid = false;
+  bool qmodValid = false;
+  bool qpiwsValid = false;
+
+  bool anyValid() const
+  {
+    return qpigsValid || qpigs2Valid || qmodValid || qpiwsValid;
+  }
+};
+
+// ===== QPIRI =====
+struct RatingInfo
+{
+  float gridRatingVoltage = 0;               // V
+  float gridRatingCurrent = 0;               // A
+  float acOutputRatingVoltage = 0;           // V
+  float acOutputRatingFrequency = 0;         // Hz
+  float acOutputRatingCurrent = 0;           // A
+  uint32_t acOutputRatingApparentPower = 0;  // VA
+  uint32_t acOutputRatingActivePower = 0;    // W
+  float batteryRatingVoltage = 0;            // V
+  float batteryRechargeVoltage = 0;          // V
+  float batteryUnderVoltage = 0;             // V
+  float batteryBulkVoltage = 0;              // V
+  float batteryFloatVoltage = 0;             // V
+  uint8_t batteryType = 0;
+  uint8_t maxACChargingCurrent = 0;  // A
+  uint8_t maxChargingCurrent = 0;    // A
+  uint8_t inputVoltageRange = 0;
+  uint8_t outputSourcePriority = 0;
+  uint8_t chargerSourcePriority = 0;
+  uint8_t parallelMaxNum = 0;
+  uint8_t machineType = 0;
+  uint8_t outputMode = 0;
+  uint8_t batteryRedischargeVoltage = 0;
+  uint8_t pvOKConditionForParallel = 0;
+  uint8_t pvPowerBalance = 0;
+  uint8_t gridFeedEnabled = 0;
+  bool valid = false;
+};
+
+// ===== QPGSn =====
+struct ParallelInfo
+{
+  uint8_t parallelNumber = 0;
+  bool exists = false;
+  char serialNumber[16] = {0};
+  char workMode = ' ';
+  uint8_t faultCode = 0;
+  float gridVoltage = 0;
+  float gridFrequency = 0;
+  float acOutputVoltage = 0;
+  float acOutputFrequency = 0;
+  uint32_t acOutputApparentPower = 0;
+  uint32_t acOutputActivePower = 0;
+  uint8_t loadPercent = 0;
+  float batteryVoltage = 0;
+  uint16_t batteryChargingCurrent = 0;
+  uint8_t batteryCapacity = 0;
+  float pvInputVoltage = 0;
+  float pvInputCurrent = 0;
+  uint16_t totalChargingCurrent = 0;
+  uint32_t totalACOutputApparentPower = 0;
+  uint32_t totalOutputActivePower = 0;
+  uint8_t totalACOutputPercentage = 0;
+  uint8_t inverterStatus = 0;
+  uint8_t outputMode = 0;
+  uint8_t chargerSourcePriority = 0;
+  uint8_t maxChargerCurrent = 0;
+  uint8_t maxChargerRange = 0;
+  uint8_t maxACChargerCurrent = 0;
+  float pvInputCurrent2 = 0;
+  bool valid = false;
+};
+
+// ===== QBEQI =====
+struct BatteryEqualizationInfo
+{
+  bool enabled = false;
+  uint16_t timeMinutes = 0;
+  uint16_t periodDays = 0;
+  float voltage = 0;
+  uint16_t overTimeMinutes = 0;
+  uint16_t maxTimeMinutes = 0;
+  uint8_t activeNow = 0;
+  bool valid = false;
+};
+
+// ===== QLED =====
+struct LedInfo
+{
+  bool enabled = false;
+  uint8_t speed = 0;
+  uint8_t effect = 0;
+  uint8_t brightness = 0;
+  uint8_t colorCount = 0;
+  uint8_t red[3] = {0};
+  uint8_t green[3] = {0};
+  uint8_t blue[3] = {0};
+  bool valid = false;
+};
+
+// ===== QDI / QFLAG helpers =====
+struct DeviceFlags
+{
+  bool silenceBuzzer = false;
+  bool overloadBypass = false;
+  bool solarFeedToGrid = false;
+  bool powerSaving = false;
+  bool lcdEscapeToDefault = false;
+  bool overloadRestart = false;
+  bool overTempRestart = false;
+  bool backlightOn = false;
+  bool alarmOnPrimaryInterrupt = false;
+  bool faultCodeRecord = false;
+  bool valid = false;
+};
+
+// ===== Warning decoded =====
+struct WarningDecoded
+{
+  bool pvLoss = false;
+  bool inverterFault = false;
+  bool busOver = false;
+  bool busUnder = false;
+  bool busSoftFail = false;
+  bool lineFail = false;
+  bool opvShort = false;
+  bool inverterVoltageLow = false;
+  bool inverterVoltageHigh = false;
+  bool overTemperature = false;
+  bool fanLocked = false;
+  bool batteryVoltageHigh = false;
+  bool batteryLowAlarm = false;
+  bool batteryUnderShutdown = false;
+  bool batteryDerating = false;
+  bool overload = false;
+  bool eepromFault = false;
+  bool inverterOverCurrent = false;
+  bool inverterSoftFail = false;
+  bool selfTestFail = false;
+  bool opDcVoltageOver = false;
+  bool batOpen = false;
+  bool currentSensorFail = false;
+  bool batteryWeak = false;
+  bool batteryEqualization = false;
+  bool any() const
+  {
+    return pvLoss || inverterFault || busOver || busUnder || busSoftFail || lineFail || opvShort ||
+           inverterVoltageLow || inverterVoltageHigh || overTemperature || fanLocked ||
+           batteryVoltageHigh || batteryLowAlarm || batteryUnderShutdown || batteryDerating ||
+           overload || eepromFault || inverterOverCurrent || inverterSoftFail || selfTestFail ||
+           opDcVoltageOver || batOpen || currentSensorFail || batteryWeak || batteryEqualization;
+  }
+};
+```
+
+## src/VoltronicLang.cpp
+
+```cpp
+#include "VoltronicLang.h"
+
+// ═══════════════════════════════════════════════════════════════
+//  English table
+// ═══════════════════════════════════════════════════════════════
+const char* const VoltronicLang::TABLE_EN[] = {
+    // Battery status
+    "Charging",
+    "Discharging",
+    "Idle",
+    // Battery types
+    "User",
+    "AGM",
+    "Flooded",
+    "Pylontech",
+    "LiFePO4 15S",
+    "LiFePO4 16S",
+    // SC modes
+    "Disabled",
+    "Standard",
+    "Fast",
+    // SC stages
+    "Disabled",
+    "Temp Protect",
+    "Float",
+    "Near Full",
+    "Charging",
+    // SC statuses
+    "Smart charging disabled",
+    "Temp: AC to %uA",
+    "Temp: Total to %uA",
+    "Over-temp protection active",
+    "Standard: AC to %uA (%.0f%%)",
+    "Standard: AC to %uA",
+    "Standard: Total to %uA (%.0f%%)",
+    "Standard: Total to %uA",
+    "Standard: steady @ %uA/%uA (%.0f%%)",
+    "Fast: AC to %uA",
+    "Fast: Total to %uA",
+    "Fast: steady @ %uA/%uA",
+    // Power modes
+    "Normal",
+    "Power Saving",
+    "Emergency",
+    "Solar Surplus",
+    "Grid Surplus",
+    "Combined Surplus",
+    "Unknown",
+    // Charging source
+    "Solar + Grid",
+    "Solar Only",
+    "Grid Only",
+    "Idle",
+    // Warnings
+    "OK",
+    "Overload",
+    "Over-temp",
+    "Battery Low",
+    "Grid Lost",
+    "Fan Locked",
+    "Warning",
+    // Inverter modes
+    "Power On",
+    "Standby",
+    "Line",
+    "Battery",
+    "Fault",
+    "Power Saving",
+    "Unknown",
+    // Output priorities
+    "Utility->Solar->Battery",
+    "Solar->Utility->Battery",
+    "Solar->Battery->Utility",
+    // Charger priorities
+    "Solar First",
+    "Solar + Utility",
+    "Only Solar",
+    // Input ranges
+    "Appliance",
+    "UPS",
+    // Common
+    "Yes",
+    "No",
+    "On",
+    "Off",
+    "OK",
+    "Error",
+    "Locked",
+    "Unlocked",
+    // Charging status codes
+    "No Charge",       // 0
+    "Solar Charging",  // 1
+    "AC Charging",     // 2
+    "Solar + AC",      // 3
+    "Float",           // 4
+    "Equalization",    // 5
+    "Reserved",        // 6
+    "Float/Timer",     // 7
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  Arabic table
+// ═══════════════════════════════════════════════════════════════
+const char* const VoltronicLang::TABLE_AR[] = {
+    // Battery status
+    "يشحن",
+    "يفرغ",
+    "ساكن",
+    // Battery types
+    "مخصص",
+    "AGM",
+    "سائل",
+    "Pylontech",
+    "LiFePO4 15S",
+    "LiFePO4 16S",
+    // SC modes
+    "معطّل",
+    "قياسي",
+    "سريع",
+    // SC stages
+    "معطّل",
+    "حماية حرارة",
+    "تعويم",
+    "قريب الامتلاء",
+    "يشحن",
+    // SC statuses
+    "الشحن الذكي معطّل",
+    "حماية: AC → %uA",
+    "حماية: الإجمالي → %uA",
+    "حماية الحرارة نشطة",
+    "قياسي: AC → %uA (%.0f%%)",
+    "قياسي: AC → %uA",
+    "قياسي: الإجمالي → %uA (%.0f%%)",
+    "قياسي: الإجمالي → %uA",
+    "قياسي: مستقر @ %uA/%uA (%.0f%%)",
+    "سريع: AC → %uA",
+    "سريع: الإجمالي → %uA",
+    "سريع: مستقر @ %uA/%uA",
+    // Power modes
+    "عادي",
+    "توفير الطاقة",
+    "طوارئ",
+    "فائض شمسي",
+    "فائض شبكة",
+    "فائض مشترك",
+    "غير معروف",
+    // Charging source
+    "شمسي + شبكة",
+    "شمسي فقط",
+    "شبكة فقط",
+    "متوقف",
+    // Warnings
+    "سليم",
+    "حمل زائد",
+    "حرارة مرتفعة",
+    "بطارية منخفضة",
+    "انقطاع الشبكة",
+    "مروحة متوقفة",
+    "تحذير",
+    // Inverter modes
+    "تشغيل",
+    "استعداد",
+    "شبكة",
+    "بطارية",
+    "عطل",
+    "توفير طاقة",
+    "غير معروف",
+    // Output priorities
+    "شبكة → شمسي → بطارية",
+    "شمسي → شبكة → بطارية",
+    "شمسي → بطارية → شبكة",
+    // Charger priorities
+    "شمسي أولاً",
+    "شمسي + شبكة",
+    "شمسي فقط",
+    // Input ranges
+    "أجهزة",
+    "UPS",
+    // Common
+    "نعم",
+    "لا",
+    "يعمل",
+    "متوقف",
+    "سليم",
+    "خطأ",
+    "مقفل",
+    "غير مقفل",
+    // أكواد الشحن
+    "لا شحن",           // 0
+    "شحن شمسي",         // 1
+    "شحن شبكة",         // 2
+    "شحن شمسي + شبكة",  // 3
+    "تعويم",            // 4
+    "معادلة",           // 5
+    "محجوز",            // 6
+    "تعويم / Timer",    // 7
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  Helpers
+// ═══════════════════════════════════════════════════════════════
+const char* VoltronicLang::batteryTypeStr(uint8_t t) const
+{
+  static const Key keys[] = {BAT_TYPE_USER,
+                             BAT_TYPE_AGM,
+                             BAT_TYPE_FLOODED,
+                             BAT_TYPE_PYLON,
+                             BAT_TYPE_LIFEPO4_15,
+                             BAT_TYPE_LIFEPO4_16};
+  return tr((t > 5) ? BAT_TYPE_USER : keys[t]);
+}
+
+const char* VoltronicLang::inverterModeStr(char m) const
+{
+  switch (m)
+  {
+    case 'P':
+      return tr(INV_POWER_ON);
+    case 'S':
+      return tr(INV_STANDBY);
+    case 'L':
+      return tr(INV_LINE);
+    case 'B':
+      return tr(INV_BATTERY);
+    case 'F':
+      return tr(INV_FAULT);
+    case 'H':
+      return tr(INV_SAVING);
+    default:
+      return tr(INV_UNKNOWN);
+  }
+}
+
+const char* VoltronicLang::outputPrioStr(uint8_t p) const
+{
+  switch (p)
+  {
+    case 0:
+      return tr(PRIO_U_S_B);
+    case 1:
+      return tr(PRIO_S_U_B);
+    case 2:
+      return tr(PRIO_S_B_U);
+    default:
+      return "";
+  }
+}
+
+const char* VoltronicLang::chargerPrioStr(uint8_t p) const
+{
+  switch (p)
+  {
+    case 1:
+      return tr(CHG_SOLAR_FIRST);
+    case 2:
+      return tr(CHG_SOLAR_UTIL);
+    case 3:
+      return tr(CHG_SOLAR_ONLY);
+    default:
+      return "";
+  }
+}
+
+const char* VoltronicLang::inputRangeStr(uint8_t r) const
+{
+  return (r == 0) ? tr(RANGE_APPLIANCE) : tr(RANGE_UPS);
+}
+
+const char* VoltronicLang::powerModeStr(uint8_t m) const
+{
+  switch (m)
+  {
+    case 1:
+      return tr(PM_NORMAL);
+    case 2:
+      return tr(PM_SAVING);
+    case 3:
+      return tr(PM_EMERGENCY);
+    case 4:
+      return tr(PM_SOLAR);
+    case 5:
+      return tr(PM_GRID);
+    case 6:
+      return tr(PM_COMBINED);
+    default:
+      return tr(PM_UNKNOWN);
+  }
+}
+```
+
+## src/VoltronicLang.h
+
+```h
+#pragma once
+#include <Arduino.h>
+
+// ═══════════════════════════════════════════════════════════════
+//  VoltronicLang — عربي/إنجليزي مركزي
+//  ⚠️ احفظ الملف UTF-8 بدون BOM
+// ═══════════════════════════════════════════════════════════════
+class VoltronicLang
+{
+ public:
+  enum Language : uint8_t
+  {
+    ENGLISH = 0,
+    ARABIC = 1,
+  };
+
+  enum Key : uint8_t
+  {
+    // Battery status
+    BAT_CHARGING = 0,
+    BAT_DISCHARGING,
+    BAT_IDLE,
+    // Battery types
+    BAT_TYPE_USER,
+    BAT_TYPE_AGM,
+    BAT_TYPE_FLOODED,
+    BAT_TYPE_PYLON,
+    BAT_TYPE_LIFEPO4_15,
+    BAT_TYPE_LIFEPO4_16,
+    // Smart Charger modes
+    SC_MODE_OFF,
+    SC_MODE_STD,
+    SC_MODE_FAST,
+    // Smart Charger stages
+    SC_STAGE_OFF,
+    SC_STAGE_TEMP,
+    SC_STAGE_FLOAT,
+    SC_STAGE_NEAR,
+    SC_STAGE_CHARGE,
+    // Smart Charger status (format strings)
+    SC_STATUS_OFF,
+    SC_STATUS_TEMP_AC,
+    SC_STATUS_TEMP_TOTAL,
+    SC_STATUS_TEMP_ACTIVE,
+    SC_STATUS_STD_AC_DN,
+    SC_STATUS_STD_AC_UP,
+    SC_STATUS_STD_T_DN,
+    SC_STATUS_STD_T_UP,
+    SC_STATUS_STD_STEADY,
+    SC_STATUS_FAST_AC,
+    SC_STATUS_FAST_TOTAL,
+    SC_STATUS_FAST_STEADY,
+    // Power modes
+    PM_NORMAL,
+    PM_SAVING,
+    PM_EMERGENCY,
+    PM_SOLAR,
+    PM_GRID,
+    PM_COMBINED,
+    PM_UNKNOWN,
+    // Charging source
+    SRC_SOLAR_GRID,
+    SRC_SOLAR,
+    SRC_GRID,
+    SRC_IDLE,
+    // Warnings
+    WARN_OK,
+    WARN_OVERLOAD,
+    WARN_OVERTEMP,
+    WARN_BATT_LOW,
+    WARN_GRID_LOST,
+    WARN_FAN,
+    WARN_GENERAL,
+    // Inverter modes
+    INV_POWER_ON,
+    INV_STANDBY,
+    INV_LINE,
+    INV_BATTERY,
+    INV_FAULT,
+    INV_SAVING,
+    INV_UNKNOWN,
+    // Output priorities
+    PRIO_U_S_B,
+    PRIO_S_U_B,
+    PRIO_S_B_U,
+    // Charger priorities
+    CHG_SOLAR_FIRST,
+    CHG_SOLAR_UTIL,
+    CHG_SOLAR_ONLY,
+    // Input ranges
+    RANGE_APPLIANCE,
+    RANGE_UPS,
+    // Common
+    YN_YES,
+    YN_NO,
+    ON_OFF_ON,
+    ON_OFF_OFF,
+    SAVE_OK,
+    SAVE_ERROR,
+    LOCKED,
+    UNLOCKED,
+    // Charging Status codes (QPIGS deviceStatus bits 2-0)
+    CHG_CODE_0_NONE,
+    CHG_CODE_1_SOLAR,
+    CHG_CODE_2_AC,
+    CHG_CODE_3_SOLAR_AC,
+    CHG_CODE_4_FLOAT,
+    CHG_CODE_5_EQ,
+    CHG_CODE_6_RESERVED,
+    CHG_CODE_7_FLOAT_TIMER,
+    _KEY_COUNT
+  };
+
+  VoltronicLang()
+    : _lang(ENGLISH)
+  {
+  }
+
+  // ─── الإعداد ───
+  void setLanguage(Language l)
+  {
+    _lang = (l == ARABIC) ? ARABIC : ENGLISH;
+  }
+  Language language() const
+  {
+    return _lang;
+  }
+  bool isArabic() const
+  {
+    return _lang == ARABIC;
+  }
+
+  // ─── الترجمة ───
+  const char* tr(Key k) const
+  {
+    if (k >= _KEY_COUNT)
+      return "?";
+    return (_lang == ARABIC) ? TABLE_AR[k] : TABLE_EN[k];
+  }
+
+  // ─── تحويلات جاهزة ───
+  const char* batteryTypeStr(uint8_t t) const;
+  const char* inverterModeStr(char m) const;
+  const char* outputPrioStr(uint8_t p) const;
+  const char* chargerPrioStr(uint8_t p) const;
+  const char* inputRangeStr(uint8_t r) const;
+  const char* powerModeStr(
+      uint8_t m) const;  // ─── Charging Status Code (bits 2-0 من QPIGS.deviceStatus) ───
+  const char* chargingCodeStr(uint8_t code) const
+  {
+    switch (code)
+    {
+      case 0:
+        return tr(CHG_CODE_0_NONE);
+      case 1:
+        return tr(CHG_CODE_1_SOLAR);
+      case 2:
+        return tr(CHG_CODE_2_AC);
+      case 3:
+        return tr(CHG_CODE_3_SOLAR_AC);
+      case 4:
+        return tr(CHG_CODE_4_FLOAT);
+      case 5:
+        return tr(CHG_CODE_5_EQ);
+      case 6:
+        return tr(CHG_CODE_6_RESERVED);
+      case 7:
+        return tr(CHG_CODE_7_FLOAT_TIMER);
+      default:
+        return "?";
+    }
+  }
+
+ private:
+  Language _lang;
+
+  static const char* const TABLE_EN[_KEY_COUNT];
+  static const char* const TABLE_AR[_KEY_COUNT];
+};
+```
+
+## src/VoltronicLog.h
+
+```h
+#pragma once
+#include <Arduino.h>
+
+// ═══════════════════════════════════════════════════════════════
+//  VoltronicLog — Platform-aware logging
+//  ⚠️ نستخدم ARDUINO_ARCH_* (معيار Arduino الرسمي)
+// ═══════════════════════════════════════════════════════════════
+
+#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
+#  define VOLTRONIC_HAS_PRINTF_P 1
+#  define VOLTRONIC_EEPROM_API 1
+#else
+#  define VOLTRONIC_HAS_PRINTF_P 0
+#  define VOLTRONIC_EEPROM_API 0
+#endif
+
+// ─── VLOG ───
+#if VOLTRONIC_HAS_PRINTF_P
+#  define VLOG(fmt, ...) Serial.printf_P(PSTR(fmt), ##__VA_ARGS__)
+#else
+#  define VLOG(fmt, ...) \
+    do                   \
+    {                    \
+    } while (0)
+#endif
+
+// ─── EEPROM macros ───
+#if VOLTRONIC_EEPROM_API
+#  define VOLTRONIC_EEPROM_BEGIN(size) EEPROM.begin(size)
+#  define VOLTRONIC_EEPROM_COMMIT() EEPROM.commit()
+#else
+#  define VOLTRONIC_EEPROM_BEGIN(size) EEPROM.begin()
+#  define VOLTRONIC_EEPROM_COMMIT() (true)
+#endif
+```
+
+## src/VoltronicMAX.cpp
+
+```cpp
+#include "VoltronicMAX.h"
+#include <stdlib.h>
+#include <string.h>
+#include "VoltronicLog.h"
+// ═══════════════════════════════════════════════════════════════
+//  Constructor
+// ═══════════════════════════════════════════════════════════════
+VoltronicMAX::VoltronicMAX(Stream& serial)
+  : _transport(serial)
+{
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Initialization
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicMAX::begin(const VoltronicConfig& cfg)
+{
+  _localCfg = cfg;
+  _transport.attachConfig(&_localCfg);
+  _transport.clear();
+  storage.begin(512);   // ← جديد
+  storage.load(*this);  // ← جديد
+  return true;
+}
+
+bool VoltronicMAX::begin(uint32_t baud)
+{
+  VoltronicConfig cfg;
+  cfg.baud = baud;
+  return begin(cfg);
+}
+
+void VoltronicMAX::setTimeout(uint16_t ms)
+{
+  _localCfg.responseTimeoutMs = ms;
+}
+void VoltronicMAX::setRetries(uint8_t r)
+{
+  _localCfg.retries = r;
+}
+// ═══════════════════════════════════════════════════════════════
+//  Error name helper
+// ═══════════════════════════════════════════════════════════════
+const char* VoltronicMAX::lastErrorName() const
+{
+  switch (_lastError)
+  {
+    case ERR_NONE:
+      return "NONE";
+    case ERR_TIMEOUT:
+      return "TIMEOUT";
+    case ERR_SHORT:
+      return "SHORT";
+    case ERR_CRC:
+      return "CRC";
+    case ERR_NAK:
+      return "NAK";
+    case ERR_BAD_RESP:
+      return "BAD_RESP";
+    case ERR_PARSE:
+      return "PARSE";
+    case ERR_BUSY:
+      return "BUSY";
+    case ERR_TOO_LONG:
+      return "TOO_LONG";
+    default:
+      return "UNKNOWN";
+  }
+}
+// ═══════════════════════════════════════════════════════════════
+//  Frame building
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicMAX::buildFrame(const char* cmd, uint8_t* out, size_t& outLen)
+{
+  size_t cmdLen = strlen(cmd);
+
+  // out buffer = VOLTRONIC_CMD_BUF_SIZE + 4 → نحتاج cmdLen + 3
+  if (cmdLen + 3 > VOLTRONIC_CMD_BUF_SIZE + 4)
+  {
+    _lastError = ERR_TOO_LONG;
+    return false;
+  }
+
+  memcpy(out, cmd, cmdLen);
+
+  uint16_t crc = voltronicCRC((const uint8_t*)cmd, cmdLen);
+
+  uint8_t hi, lo;
+  voltronicCRCBytes(crc, hi, lo, _localCfg.applyCrcEscape);
+
+  out[cmdLen + 0] = hi;
+  out[cmdLen + 1] = lo;
+  out[cmdLen + 2] = 0x0D;
+  outLen = cmdLen + 3;
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CRC validation
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicMAX::checkCRC()
+{
+  if (_respLen < 3)
+  {
+    _lastError = ERR_SHORT;
+    return false;
+  }
+
+  uint8_t rawHi = (uint8_t)_respBuf[_respLen - 2];
+  uint8_t rawLo = (uint8_t)_respBuf[_respLen - 1];
+
+  uint16_t calc = voltronicCRC((const uint8_t*)_respBuf, _respLen - 2);
+
+  // ─── Try 1: direct ───
+  uint16_t recv1 = ((uint16_t)rawHi << 8) | rawLo;
+  if (recv1 == calc)
+  {
+    _respBuf[_respLen - 2] = '\0';
+    _respLen -= 2;
+    return true;
+  }
+
+  // ─── Try 2: unescape ───
+  if (_localCfg.applyCrcEscape)
+  {
+    uint8_t unh = voltronicUnescapeByte(rawHi);
+    uint8_t unl = voltronicUnescapeByte(rawLo);
+    uint16_t recv2 = ((uint16_t)unh << 8) | unl;
+    if (recv2 == calc)
+    {
+      _respBuf[_respLen - 2] = '\0';
+      _respLen -= 2;
+      return true;
+    }
+  }
+
+  _lastError = ERR_CRC;
+  return false;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ACK / NAK detection — ✅ مصحّح: يتجاوز '(' في البداية
+// ═══════════════════════════════════════════════════════════════
+const char* VoltronicMAX::payloadStart() const
+{
+  return (_respBuf[0] == '(') ? (_respBuf + 1) : _respBuf;
+}
+
+bool VoltronicMAX::isAck() const
+{
+  const char* p = payloadStart();
+  return p[0] == 'A' && p[1] == 'C' && p[2] == 'K';
+}
+
+bool VoltronicMAX::isNak() const
+{
+  const char* p = payloadStart();
+  return p[0] == 'N' && p[1] == 'A' && p[2] == 'K';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Filter printable — يُطبَّق بعد CRC على payload
+// ═══════════════════════════════════════════════════════════════
+void VoltronicMAX::applyPrintableFilter()
+{
+  if (!_localCfg.filterPrintable)
+    return;
+  for (size_t i = 0; i < _respLen; i++)
+  {
+    uint8_t c = (uint8_t)_respBuf[i];
+    if (c < 0x20 && c != '\t')
+      _respBuf[i] = ' ';
+    else if (c > 0x7E)
+      _respBuf[i] = '.';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Transaction
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicMAX::transact(const char* cmd, bool expectAck)
+{
+  _lastError = ERR_NONE;
+  _respLen = 0;
+
+  size_t cmdLen = strlen(cmd);
+  if (cmdLen >= VOLTRONIC_CMD_BUF_SIZE)
+  {
+    _lastError = ERR_TOO_LONG;
+    return false;
+  }
+
+  strncpy(_cmdBuf, cmd, sizeof(_cmdBuf) - 1);
+  _cmdBuf[sizeof(_cmdBuf) - 1] = '\0';
+
+  uint8_t frame[VOLTRONIC_CMD_BUF_SIZE + 4];
+  size_t frameLen;
+  if (!buildFrame(_cmdBuf, frame, frameLen))
+    return false;
+
+  uint8_t attempts = _localCfg.retries + 1;
+
+  for (uint8_t a = 0; a < attempts; a++)
+  {
+    if (_localCfg.clearBufferBeforeSend)
+      _transport.clear();
+    _transport.writeRaw(frame, frameLen);
+
+    _respLen = _transport.readUntilCR((uint8_t*)_respBuf, sizeof(_respBuf) - 1);
+    if (_respLen == 0)
+    {
+      _lastError = ERR_TIMEOUT;
+      continue;
+    }
+    _respBuf[_respLen] = '\0';
+
+    if (!checkCRC())
+      continue;
+
+    // ✅ الفلتر بعد CRC — لا يؤثر على الحساب
+    applyPrintableFilter();
+
+    if (expectAck)
+    {
+      if (isAck())
+      {
+        _lastError = ERR_NONE;
+        return true;
+      }
+      if (isNak())
+      {
+        _lastError = ERR_NAK;
+        continue;
+      }
+      _lastError = ERR_BAD_RESP;
+      continue;
+    }
+
+    _lastError = ERR_NONE;
+    return true;
+  }
+  return false;
+}
+
+bool VoltronicMAX::sendRaw(const char* cmd)
+{
+  return transact(cmd, false);
+}
+
+bool VoltronicMAX::sendRawSetting(const char* cmd)
+{
+  return transact(cmd, true);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  String queries
+// ═══════════════════════════════════════════════════════════════
+#define VC_STR_QUERY(cmdConst, validBit) \
+  do                                     \
+  {                                      \
+    if (!transact(cmdConst, false))      \
+      return false;                      \
+    const char* s = payloadStart();      \
+    strncpy(out, s, len - 1);            \
+    out[len - 1] = '\0';                 \
+    _validBits |= (validBit);            \
+    return true;                         \
+  } while (0)
+
+bool VoltronicMAX::queryProtocolID(char* out, size_t len)
+{
+  VC_STR_QUERY(VC_QPI, VVB_QID);
+}
+bool VoltronicMAX::querySerialNumber(char* out, size_t len)
+{
+  VC_STR_QUERY(VC_QID, VVB_QID);
+}
+bool VoltronicMAX::querySerialNumberLong(char* out, size_t len)
+{
+  VC_STR_QUERY(VC_QSID, VVB_QSID);
+}
+bool VoltronicMAX::queryFirmware(char* out, size_t len)
+{
+  VC_STR_QUERY(VC_QVFW, VVB_QVFW);
+}
+bool VoltronicMAX::queryFirmware2(char* out, size_t len)
+{
+  VC_STR_QUERY(VC_QVFW3, VVB_QVFW3);
+}
+bool VoltronicMAX::queryBluetoothVersion(char* out, size_t len)
+{
+  VC_STR_QUERY(VC_VERFW, VVB_VERFW);
+}
+bool VoltronicMAX::queryModelName(char* out, size_t len)
+{
+  VC_STR_QUERY(VC_QMN, VVB_QMN);
+}
+bool VoltronicMAX::queryGeneralModelName(char* out, size_t len)
+{
+  VC_STR_QUERY(VC_QGMN, VVB_QGMN);
+}
+bool VoltronicMAX::queryTime(char* out, size_t len)
+{
+  VC_STR_QUERY(VC_QT, VVB_QT);
+}
+
+#undef VC_STR_QUERY
+
+// ═══════════════════════════════════════════════════════════════
+//  Data queries
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicMAX::queryGeneralStatus()
+{
+  if (!transact(VC_QPIGS, false))
+    return false;
+  if (!VoltronicParser::parseQPIGS(_respBuf, _qpigs))
+  {
+    _lastError = ERR_PARSE;
+    return false;
+  }
+  _validBits |= VVB_QPIGS;
+  battery.update(_qpigs);  // ← جديد: يحدّث الحسابات
+  return true;
+}
+
+bool VoltronicMAX::queryGeneralStatus2()
+{
+  if (!transact(VC_QPIGS2, false))
+    return false;
+  if (!VoltronicParser::parseQPIGS2(_respBuf, _qpigs2))
+  {
+    _lastError = ERR_PARSE;
+    return false;
+  }
+  _validBits |= VVB_QPIGS2;
+  return true;
+}
+
+bool VoltronicMAX::queryRating()
+{
+  if (!transact(VC_QPIRI, false))
+    return false;
+  if (!VoltronicParser::parseQPIRI(_respBuf, _qpiri))
+  {
+    _lastError = ERR_PARSE;
+    return false;
+  }
+  _validBits |= VVB_QPIRI;
+  smartCharger.update(*this, battery);  // ← جديد
+  powerMode.update(*this, battery);     // ← جديد
+  return true;
+}
+
+bool VoltronicMAX::queryMode()
+{
+  if (!transact(VC_QMOD, false))
+    return false;
+  if (!VoltronicParser::parseQMOD(_respBuf, _mode))
+  {
+    _lastError = ERR_PARSE;
+    return false;
+  }
+  _validBits |= VVB_QMOD;
+  return true;
+}
+
+bool VoltronicMAX::queryWarnings()
+{
+  if (!transact(VC_QPIWS, false))
+    return false;
+  if (!VoltronicParser::parseQPIWS(_respBuf, _warningsRaw))
+  {
+    _lastError = ERR_PARSE;
+    return false;
+  }
+  _validBits |= VVB_QPIWS;
+  return true;
+}
+
+bool VoltronicMAX::queryFlags()
+{
+  if (!transact(VC_QFLAG, false))
+    return false;
+  if (!VoltronicParser::parseQFLAG(_respBuf, _qflag))
+  {
+    _lastError = ERR_PARSE;
+    return false;
+  }
+  _validBits |= VVB_QFLAG;
+  return true;
+}
+
+bool VoltronicMAX::queryDefaults()
+{
+  if (!transact(VC_QDI, false))
+    return false;
+  if (!VoltronicParser::parseQDI(_respBuf, _defaults))
+  {
+    _lastError = ERR_PARSE;
+    return false;
+  }
+  _validBits |= VVB_QDI;
+  return true;
+}
+
+bool VoltronicMAX::queryParallel(uint8_t n)
+{
+  char cmd[8];
+  snprintf(cmd, sizeof(cmd), "%s%u", VC_QPGS, n);
+  if (!transact(cmd, false))
+    return false;
+  if (!VoltronicParser::parseQPGSn(_respBuf, _parallel))
+  {
+    _lastError = ERR_PARSE;
+    return false;
+  }
+  _validBits |= VVB_QPGS;
+  return true;
+}
+
+bool VoltronicMAX::queryBatteryEqualization()
+{
+  if (!transact(VC_QBEQI, false))
+    return false;
+  if (!VoltronicParser::parseQBEQI(_respBuf, _beqi))
+  {
+    _lastError = ERR_PARSE;
+    return false;
+  }
+  _validBits |= VVB_QBEQI;
+  return true;
+}
+
+bool VoltronicMAX::queryLed()
+{
+  if (!transact(VC_QLED, false))
+    return false;
+  if (!VoltronicParser::parseQLED(_respBuf, _led))
+  {
+    _lastError = ERR_PARSE;
+    return false;
+  }
+  _validBits |= VVB_QLED;
+  return true;
+}
+
+bool VoltronicMAX::queryBatteryControl()
+{
+  if (!transact(VC_QBATCD, false))
+    return false;
+  if (!VoltronicParser::parseQBATCD(_respBuf, _batcd))
+  {
+    _lastError = ERR_PARSE;
+    return false;
+  }
+  _validBits |= VVB_QBATCD;
+  return true;
+}
+
+bool VoltronicMAX::queryBoot(bool& hasBootstrap)
+{
+  if (!transact(VC_QBOOT, false))
+    return false;
+  if (!VoltronicParser::parseQBOOT(_respBuf, hasBootstrap))
+  {
+    _lastError = ERR_PARSE;
+    return false;
+  }
+  _hasBoot = hasBootstrap;
+  _validBits |= VVB_QBOOT;
+  return true;
+}
+
+bool VoltronicMAX::queryMaxChargingCurrents()
+{
+  if (!transact(VC_QMCHGCR, false))
+    return false;
+  if (!VoltronicParser::parseQMCHGCR(_respBuf, _maxChg))
+  {
+    _lastError = ERR_PARSE;
+    return false;
+  }
+  _validBits |= VVB_QMCHGCR;
+  return true;
+}
+
+bool VoltronicMAX::queryMaxUtilityChargingCurrents()
+{
+  if (!transact(VC_QMUCHGCR, false))
+    return false;
+  if (!VoltronicParser::parseQMUCHGCR(_respBuf, _maxUtilChg))
+  {
+    _lastError = ERR_PARSE;
+    return false;
+  }
+  _validBits |= VVB_QMUCHGCR;
+  return true;
+}
+
+bool VoltronicMAX::queryOutputPriorityTimeOrder()
+{
+  if (!transact(VC_QOPPT, false))
+    return false;
+  if (!VoltronicParser::parseQOPPT(_respBuf, _outputTO))
+  {
+    _lastError = ERR_PARSE;
+    return false;
+  }
+  _validBits |= VVB_QOPPT;
+  return true;
+}
+
+bool VoltronicMAX::queryChargerPriorityTimeOrder()
+{
+  if (!transact(VC_QCHPT, false))
+    return false;
+  if (!VoltronicParser::parseQCHPT(_respBuf, _chargerTO))
+  {
+    _lastError = ERR_PARSE;
+    return false;
+  }
+  _validBits |= VVB_QCHPT;
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Settings
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicMAX::setFlag(char flag)
+{
+  char cmd[4] = {'P', 'E', flag, 0};
+  return transact(cmd, true);
+}
+
+bool VoltronicMAX::clearFlag(char flag)
+{
+  char cmd[4] = {'P', 'D', flag, 0};
+  return transact(cmd, true);
+}
+
+bool VoltronicMAX::resetDefaults()
+{
+  return transact(VC_PF, true);
+}
+
+bool VoltronicMAX::setMaxChargingCurrent(uint16_t a)
+{
+  char cmd[16];
+  snprintf(cmd, sizeof(cmd), "%s%03u", VC_MNCHGC, a);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setMaxUtilityChargingCurrent(uint16_t a)
+{
+  char cmd[16];
+  snprintf(cmd, sizeof(cmd), "%s%03u", VC_MUCHGC, a);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setMaxDischargingCurrent(uint16_t a)
+{
+  char cmd[20];
+  snprintf(cmd, sizeof(cmd), "%s%03u", VC_PBATMAXDISC, a);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setOutputVoltage(uint16_t v)
+{
+  char cmd[8];
+  snprintf(cmd, sizeof(cmd), "%s%03u", VC_V, v);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setOutputFrequency(uint8_t hz)
+{
+  char cmd[8];
+  snprintf(cmd, sizeof(cmd), "%s%02u", VC_F, hz);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setOutputSourcePriority(uint8_t p)
+{
+  char cmd[8];
+  snprintf(cmd, sizeof(cmd), "%s%02u", VC_POP, p);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setOutputMode(uint8_t m)
+{
+  char cmd[8];
+  snprintf(cmd, sizeof(cmd), "%s%02u", VC_POPM, m);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setBatteryRechargeVoltage(float v)
+{
+  char cmd[12];
+  snprintf(cmd, sizeof(cmd), "%s%.1f", VC_PBCV, v);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setBatteryRedischargeVoltage(float v)
+{
+  char cmd[12];
+  snprintf(cmd, sizeof(cmd), "%s%.1f", VC_PBDV, v);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setBatteryCutoffVoltage(float v)
+{
+  char cmd[12];
+  snprintf(cmd, sizeof(cmd), "%s%.1f", VC_PSDV, v);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setBatteryCvVoltage(float v)
+{
+  char cmd[12];
+  snprintf(cmd, sizeof(cmd), "%s%.1f", VC_PCVV, v);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setBatteryFloatVoltage(float v)
+{
+  char cmd[12];
+  snprintf(cmd, sizeof(cmd), "%s%.1f", VC_PBFT, v);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setChargerSourcePriority(uint8_t p)
+{
+  char cmd[8];
+  snprintf(cmd, sizeof(cmd), "%s%02u", VC_PCP, p);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setGridWorkingRange(uint8_t r)
+{
+  char cmd[8];
+  snprintf(cmd, sizeof(cmd), "%s%02u", VC_PGR, r);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setBatteryType(uint8_t t)
+{
+  char cmd[8];
+  snprintf(cmd, sizeof(cmd), "%s%02u", VC_PBT, t);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setParallelChargerPriority(uint8_t m, uint8_t p)
+{
+  char cmd[12];
+  snprintf(cmd, sizeof(cmd), "%s%u%02u", VC_PPCP, m, p);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::resetEnergy()
+{
+  return transact(VC_RTEY, true);
+}
+bool VoltronicMAX::eraseLog()
+{
+  return transact(VC_RTDL, true);
+}
+
+bool VoltronicMAX::setBatteryEqualizationEnabled(bool en)
+{
+  char cmd[8];
+  snprintf(cmd, sizeof(cmd), "%s%u", VC_PBEQE, en ? 1 : 0);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setBatteryEqualizationTime(uint16_t min)
+{
+  char cmd[12];
+  snprintf(cmd, sizeof(cmd), "%s%03u", VC_PBEQT, min);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setBatteryEqualizationPeriod(uint16_t days)
+{
+  char cmd[12];
+  snprintf(cmd, sizeof(cmd), "%s%03u", VC_PBEQP, days);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setBatteryEqualizationVoltage(float v)
+{
+  char cmd[12];
+  snprintf(cmd, sizeof(cmd), "%s%.2f", VC_PBEQV, v);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setBatteryEqualizationOverTime(uint16_t min)
+{
+  char cmd[12];
+  snprintf(cmd, sizeof(cmd), "%s%03u", VC_PBEQOT, min);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::activateBatteryEqualization(bool active)
+{
+  char cmd[8];
+  snprintf(cmd, sizeof(cmd), "%s%u", VC_PBEQA, active ? 1 : 0);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setMaxCvChargingTime(uint16_t min)
+{
+  char cmd[12];
+  snprintf(cmd, sizeof(cmd), "%s%03u", VC_PCVT, min);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setDateTime(const char* s)
+{
+  char cmd[32];
+  snprintf(cmd, sizeof(cmd), "%s%s", VC_DAT, s);
+  return transact(cmd, true);
+}
+bool VoltronicMAX::setBatteryControl(uint8_t a, uint8_t b, uint8_t c)
+{
+  char cmd[20];
+  snprintf(cmd, sizeof(cmd), "%s%u%u%u", VC_PBATCD, a, b, c);
+  return transact(cmd, true);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Non-blocking polling
+// ═══════════════════════════════════════════════════════════════
+void VoltronicMAX::startPolling(const VoltronicPollSchedule& schedule)
+{
+  _pollSchedule = schedule;
+  _pollEnabled = true;
+  _pollIndex = 0;
+  _pollCycles = 0;
+  _pollCycleDone = false;
+  uint32_t now = millis();
+  for (uint8_t i = 0; i < 9; i++)
+    _pollLastFire[i] = now;
+}
+
+void VoltronicMAX::startPolling()
+{
+  VoltronicPollSchedule def;
+  startPolling(def);
+}
+
+void VoltronicMAX::stopPolling()
+{
+  _pollEnabled = false;
+}
+
+uint16_t VoltronicMAX::getPollInterval(uint8_t idx) const
+{
+  switch (idx)
+  {
+    case 0:
+      return _pollSchedule.qpigsMs;
+    case 1:
+      return _pollSchedule.qpigs2Ms;
+    case 2:
+      return _pollSchedule.qpiriMs;
+    case 3:
+      return _pollSchedule.qmodMs;
+    case 4:
+      return _pollSchedule.qpiwsMs;
+    case 5:
+      return _pollSchedule.qflagMs;
+    case 6:
+      return _pollSchedule.qidMs;
+    case 7:
+      return _pollSchedule.qbeqiMs;
+    case 8:
+      return _pollSchedule.qbatcdMs;
+    default:
+      return 0;
+  }
+}
+
+bool VoltronicMAX::execPollQuery(uint8_t idx)
+{
+  switch (idx)
+  {
+    case 0:
+      return queryGeneralStatus();
+    case 1:
+      return queryGeneralStatus2();
+    case 2:
+      return queryRating();
+    case 3:
+      return queryMode();
+    case 4:
+      return queryWarnings();
+    case 5:
+      return queryFlags();
+    case 6:
+    {
+      char buf[24];
+      return querySerialNumber(buf, sizeof(buf));
+    }
+    case 7:
+      return queryBatteryEqualization();
+    case 8:
+      return queryBatteryControl();
+    default:
+      return false;
+  }
+}
+
+bool VoltronicMAX::poll()
+{
+  _pollCycleDone = false;
+  if (!_pollEnabled)
+    return true;
+
+  uint32_t now = millis();
+  const uint8_t total = 9;
+
+  for (uint8_t i = 0; i < total; i++)
+  {
+    uint8_t idx = (_pollIndex + i) % total;
+    uint16_t interval = getPollInterval(idx);
+    if (interval == 0)
+      continue;
+
+    if (now - _pollLastFire[idx] >= interval)
+    {
+      _pollLastFire[idx] = now;
+      execPollQuery(idx);
+      _pollIndex = (idx + 1) % total;
+
+      bool anyDue = false;
+      for (uint8_t j = 0; j < total; j++)
+      {
+        uint16_t iv = getPollInterval(j);
+        if (iv == 0)
+          continue;
+        if (now - _pollLastFire[j] >= iv)
+        {
+          anyDue = true;
+          break;
+        }
+      }
+      if (!anyDue && _pollIndex == 0)
+      {
+        _pollCycles++;
+        _pollCycleDone = true;
+      }
+      return false;
+    }
+  }
+  return true;
+}
+// ═══════════════════════════════════════════════════════════════
+//  Web console implementation (opt-in)
+// ═══════════════════════════════════════════════════════════════
+#if defined(VOLTRONIC_USE_WEB)
+
+// ═══════════════════════════════════════════════════════════════
+//  VoltronicWeb.h — Web Console + Parser
+// ═══════════════════════════════════════════════════════════════
+
+// ─── جدول الأوامر (PROGMEM) ───
+struct VoltWebCmdEntry
+{
+  const char* cmd;
+  const char* label;
+  uint8_t type;
+  const char* defParam;
+};
+
+static const VoltWebCmdEntry VWEB_CMDS[] PROGMEM = {
+    {VC_QPI, "Protocol ID", 0, ""},
+    {VC_QID, "Serial number", 0, ""},
+    {VC_QSID, "Serial (long)", 0, ""},
+    {VC_QVFW, "Firmware version", 0, ""},
+    {VC_QVFW3, "Firmware v2", 0, ""},
+    {VC_VERFW, "Bluetooth version", 0, ""},
+    {VC_QMN, "Model name", 0, ""},
+    {VC_QGMN, "General model", 0, ""},
+    {VC_QBOOT, "Boot status", 0, ""},
+    {VC_QMOD, "Device mode", 0, ""},
+    {VC_QPIGS, "General status", 0, ""},
+    {VC_QPIGS2, "General status 2", 0, ""},
+    {VC_QPIRI, "Rated info", 0, ""},
+    {VC_QFLAG, "Status flags", 0, ""},
+    {VC_QPIWS, "Warning status", 0, ""},
+    {VC_QT, "Inverter time", 0, ""},
+    {VC_QBEQI, "Battery equalize", 0, ""},
+    {VC_QBATCD, "Battery control", 0, ""},
+    {VC_QLED, "LED status", 0, ""},
+    {VC_QDI, "Defaults", 0, ""},
+    {VC_QMCHGCR, "Max charge currents", 0, ""},
+    {VC_QMUCHGCR, "Max utility currents", 0, ""},
+    {VC_QOPPT, "Output prio time", 0, ""},
+    {VC_QCHPT, "Charger prio time", 0, ""},
+    {VC_QPGS, "Parallel info (n)", 0, "0"},
+    {VC_PF, "Factory reset", 1, ""},
+    {VC_PE, "Enable flag (a/b/d/...)", 1, "a"},
+    {VC_PD, "Disable flag (a/b/d/...)", 1, "a"},
+    {VC_MNCHGC, "Max charge A", 1, "060"},
+    {VC_MUCHGC, "Max utility A", 1, "060"},
+    {VC_PBATMAXDISC, "Max discharge A", 1, "060"},
+    {VC_V, "Output voltage", 1, "230"},
+    {VC_F, "Output freq Hz", 1, "50"},
+    {VC_POP, "Output priority", 1, "0"},
+    {VC_PCP, "Charger priority", 1, "2"},
+    {VC_PGR, "Grid range", 1, "1"},
+    {VC_PBT, "Battery type", 1, "2"},
+    {VC_POPM, "Output mode", 1, "0"},
+    {VC_PBCV, "Battery recharge V", 1, "56.4"},
+    {VC_PBDV, "Battery redischarge V", 1, "54.0"},
+    {VC_PSDV, "Battery cutoff V", 1, "48.0"},
+    {VC_PCVV, "Battery CV V", 1, "56.4"},
+    {VC_PBFT, "Battery float V", 1, "54.0"},
+    {VC_PPCP, "Parallel priority (M PP)", 1, "100"},
+    {VC_RTEY, "Reset energy", 1, ""},
+    {VC_RTDL, "Erase log", 1, ""},
+    {VC_PBEQE, "Equalize enable", 1, "1"},
+    {VC_PBEQT, "Equalize time min", 1, "060"},
+    {VC_PBEQP, "Equalize period days", 1, "030"},
+    {VC_PBEQV, "Equalize voltage", 1, "58.40"},
+    {VC_PBEQOT, "Equalize over time min", 1, "120"},
+    {VC_PBEQA, "Activate equalize", 1, "0"},
+    {VC_PCVT, "Max CV time min", 1, "060"},
+    {VC_DAT, "Set datetime", 1, "26010112000000"},
+    {VC_PBATCD, "Battery control (a b c)", 1, "000"},
+};
+static const size_t VWEB_CMDS_N = sizeof(VWEB_CMDS) / sizeof(VWEB_CMDS[0]);
+
+// ═══════════════════════════════════════════════════════════════
+//  HTML (PROGMEM)
+// ═══════════════════════════════════════════════════════════════
+static const char VHTML_P1[] PROGMEM =
+    "<!DOCTYPE html><html lang='en'><head><meta charset='utf-8'>"
+    "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+    "<title>Voltronic MAX</title>"
+    "<style>"
+    "*{box-sizing:border-box}"
+    "body{font-family:system-ui,-apple-system,sans-serif;max-width:900px;"
+    "margin:16px auto;padding:0 14px;background:#eef1f5;color:#1a1a1a;"
+    "font-size:14px;line-height:1.5}"
+    "h1{color:#2563eb;margin:0 0 14px;font-size:1.4rem}"
+    "h2{font-size:.7rem;color:#6b7280;text-transform:uppercase;"
+    "letter-spacing:.08em;margin:0 0 10px;font-weight:700}"
+    ".card{background:#fff;padding:14px;border-radius:10px;"
+    "box-shadow:0 1px 6px rgba(0,0,0,.06);margin-bottom:12px}"
+    ".filter{margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap}"
+    ".filter input{flex:1;min-width:180px;padding:7px 10px;border:1px solid "
+    "#d1d5db;"
+    "border-radius:6px;font-size:.85rem;font-family:inherit}"
+    ".filter button{padding:7px "
+    "12px;border:0;background:#e5e7eb;cursor:pointer;"
+    "border-radius:6px;font-size:.8rem}"
+    ".filter button.active{background:#2563eb;color:#fff}"
+    ".cmd{display:grid;grid-template-columns:1fr auto auto;gap:8px;"
+    "align-items:center;padding:7px 0;border-bottom:1px solid #f1f3f5}"
+    ".cmd:last-child{border-bottom:0}"
+    ".cmd .info{min-width:0}"
+    ".cmd b{font-weight:600;font-size:.88rem;display:block}"
+    ".cmd code{background:#f1f3f5;padding:1px 6px;border-radius:3px;"
+    "font-size:.68rem;color:#2563eb;font-family:ui-monospace,monospace}"
+    ".cmd input{padding:6px 9px;border:1px solid #d1d5db;border-radius:5px;"
+    "font-size:.8rem;width:110px;font-family:ui-monospace,monospace}"
+    ".cmd button{padding:6px 12px;border:0;background:#2563eb;color:#fff;"
+    "border-radius:5px;font-size:.78rem;cursor:pointer;font-weight:600}"
+    ".cmd button:hover{background:#1d4ed8}"
+    ".row{display:flex;gap:6px}.row input{flex:1;width:auto;padding:8px 10px;"
+    "border:1px solid "
+    "#d1d5db;border-radius:6px;font-family:ui-monospace,monospace}"
+    ".row button{padding:8px 16px;border:0;background:#2563eb;color:#fff;"
+    "border-radius:6px;cursor:pointer;font-weight:600}"
+    "#out{display:flex;flex-direction:column;gap:10px}"
+    ".resp{background:#fff;border-radius:8px;border-left:4px solid #2563eb;"
+    "padding:10px 12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}"
+    ".resp.err{border-left-color:#dc2626}"
+    ".resp.ok{border-left-color:#16a34a}"
+    ".resp-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;"
+    "flex-wrap:wrap}"
+    ".resp-cmd{background:#2563eb;color:#fff;padding:2px 8px;border-radius:4px;"
+    "font-family:ui-monospace,monospace;font-size:.75rem;font-weight:700}"
+    ".resp-time{color:#9ca3af;font-size:.7rem;margin-left:auto}"
+    ".badge{padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:700}"
+    ".badge.ok{background:#dcfce7;color:#15803d}"
+    ".badge.err{background:#fee2e2;color:#b91c1c}"
+    ".kv{width:100%;border-collapse:collapse;font-size:.82rem;margin:6px 0}"
+    ".kv td{padding:4px 8px;border-bottom:1px solid #f1f3f5}"
+    ".kv td:first-child{color:#6b7280;width:55%}"
+    ".kv td:last-child{font-family:ui-monospace,monospace;font-weight:600;"
+    "color:#111827;text-align:right}"
+    ".raw{margin-top:8px;background:#0f172a;color:#7dd3fc;padding:8px 10px;"
+    "border-radius:6px;font-size:.72rem;font-family:ui-monospace,monospace;"
+    "word-break:break-all;white-space:pre-wrap}"
+    ".raw-label{font-size:.68rem;color:#94a3b8;text-transform:uppercase;"
+    "margin-bottom:3px;font-weight:700}"
+    ".foot{font-size:.72rem;color:#9ca3af;text-align:center;margin-top:20px}"
+    "#msgBanner{position:fixed;top:14px;left:50%;transform:translateX(-50%);"
+    "padding:10px 22px;border-radius:8px;font-weight:600;z-index:9999;"
+    "box-shadow:0 2px 12px rgba(0,0,0,.15);opacity:0;transition:opacity .3s;"
+    "pointer-events:none;font-size:.85rem}"
+    "</style></head><body>"
+    "<h1>⚡ Voltronic MAX</h1>";
+
+static const char VHTML_P2[] PROGMEM =
+    // ═══════════════ Commands ═══════════════
+    "<div class='card'>"
+    "<h2>Commands</h2>"
+    "<div class='filter'>"
+    "<input type='text' id='srch' placeholder='Filter commands…' "
+    "oninput='renderCmds()'>"
+    "<button id='fAll' class='active' onclick='setFilter(0)'>All</button>"
+    "<button id='fQ'   onclick='setFilter(1)'>Query</button>"
+    "<button id='fS'   onclick='setFilter(2)'>Setting</button>"
+    "</div>"
+    "<div id='cmds'>loading…</div>"
+    "</div>"
+
+    // ═══════════════ Battery ═══════════════
+    "<div class='card'>"
+    "<h2>Battery</h2>"
+    "<div style='display:flex;flex-direction:column;gap:8px'>"
+    "<label style='font-size:.8rem;color:#6b7280'>Type</label>"
+    "<select id='batType' style='padding:6px;border:1px solid "
+    "#d1d5db;border-radius:5px'>"
+    "<option>User</option><option>AGM</option><option>Flooded</option>"
+    "<option>Pylontech</option><option>LiFePO4 15S</option><option>LiFePO4 "
+    "16S</option>"
+    "</select>"
+    "<label style='font-size:.8rem;color:#6b7280'>Capacity (Ah)</label>"
+    "<input type='number' id='batCap' value='100' min='10' max='2000' "
+    "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
+    "<label style='font-size:.8rem;color:#6b7280'>Voltage Empty (V)</label>"
+    "<input type='number' id='batVEmpty' value='42.0' step='0.1' "
+    "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
+    "<label style='font-size:.8rem;color:#6b7280'>Voltage Full (V)</label>"
+    "<input type='number' id='batVFull' value='54.0' step='0.1' "
+    "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
+    "<button onclick='saveBattery()' "
+    "style='padding:8px;border:0;background:#16a34a;"
+    "color:#fff;border-radius:5px;cursor:pointer;font-weight:600'>Save "
+    "Battery</button>"
+    "</div></div>"
+
+    // ═══════════════ Smart Charger ═══════════════
+    "<div class='card'>"
+    "<h2>Smart Charger</h2>"
+    "<div style='display:flex;flex-direction:column;gap:8px'>"
+    "<label style='font-size:.8rem;color:#6b7280'>Mode</label>"
+    "<select id='scMode' style='padding:6px;border:1px solid "
+    "#d1d5db;border-radius:5px'>"
+    "<option value='0'>Disabled</option>"
+    "<option value='1'>Standard (Step Down)</option>"
+    "<option value='2'>Fast (Float Only)</option>"
+    "</select>"
+    "<label style='font-size:.8rem;color:#6b7280'>Target AC (A)</label>"
+    "<input type='number' id='scAC' value='40' min='2' max='80' "
+    "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
+    "<label style='font-size:.8rem;color:#6b7280'>Target Total (A)</label>"
+    "<input type='number' id='scTotal' value='80' min='10' max='80' "
+    "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
+    "<label style='font-size:.8rem;color:#6b7280'>Float AC (A)</label>"
+    "<input type='number' id='scFloatAC' value='2' min='2' max='20' "
+    "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
+    "<label style='font-size:.8rem;color:#6b7280'>Float Total (A)</label>"
+    "<input type='number' id='scFloatTotal' value='10' min='2' max='40' "
+    "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
+    "<label style='font-size:.8rem;color:#6b7280'>Temp Protect (°C)</label>"
+    "<input type='number' id='scTemp' value='70' min='50' max='90' "
+    "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
+    "<button onclick='saveSmartCharger()' "
+    "style='padding:8px;border:0;background:#16a34a;"
+    "color:#fff;border-radius:5px;cursor:pointer;font-weight:600'>Save Smart "
+    "Charger</button>"
+    "</div></div>"
+
+    // ═══════════════ Power Mode Thresholds ═══════════════
+    "<div class='card'>"
+    "<h2>Power Mode Thresholds</h2>"
+    "<div style='display:flex;flex-direction:column;gap:8px'>"
+
+    "<label style='font-size:.8rem;color:#6b7280'>⚠️ SOC Emergency Mode "
+    "(%)</label>"
+    "<input type='number' id='pmSocEm' value='10' min='5' max='40' "
+    "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
+
+    "<label style='font-size:.8rem;color:#6b7280'>🔋 SOC Power Saving Mode "
+    "(%)</label>"
+    "<input type='number' id='pmSocPs' value='25' min='10' max='50' "
+    "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
+
+    "<label style='font-size:.8rem;color:#6b7280'>🔌 SOC Recover (Exit Lock) "
+    "(%)</label>"
+    "<input type='number' id='pmSocRec' value='30' min='20' max='60' "
+    "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
+
+    "<label style='font-size:.8rem;color:#6b7280'>☀️ SOC Surplus Mode "
+    "(%)</label>"
+    "<input type='number' id='pmSocSurp' value='88' min='70' max='99' "
+    "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
+
+    "<label style='font-size:.8rem;color:#6b7280'>⚡ Grid Min Voltage "
+    "(V)</label>"
+    "<input type='number' id='pmGridV' value='150' min='100' max='220' "
+    "style='padding:6px;border:1px solid #d1d5db;border-radius:5px'>"
+
+    "<button onclick='savePowerMode()' style='padding:8px;border:0;"
+    "background:#16a34a;color:#fff;border-radius:5px;cursor:pointer;"
+    "font-weight:600'>Save Power Mode</button>"
+    "</div></div>"
+
+    // ═══════════════ Live Status ═══════════════
+    "<div class='card'>"
+    "<h2>Live Status</h2>"
+    "<div id='statusBox' "
+    "style='font-size:.85rem;line-height:1.9'>loading…</div>"
+    "</div>"
+
+    // ═══════════════ Raw command ═══════════════
+    "<div class='card'>"
+    "<h2>Raw command</h2>"
+    "<div class='row'>"
+    "<input type='text' id='raw' placeholder='QPIGS   or   PBCV56.4'>"
+    "<button onclick='sendRaw()'>Send</button>"
+    "</div>"
+    "</div>"
+
+    // ═══════════════ Output ═══════════════
+    "<div class='card'>"
+    "<h2>Output</h2>"
+    "<div id='out'><div style='color:#9ca3af;font-style:italic'>No output "
+    "yet…</div></div>"
+    "</div>"
+
+    "<div class='foot'>Kitronic &middot; Voltronic MAX Web Console</div>"
+
+    // ═══════════════════════════════════════════════════════════
+    //  JavaScript
+    // ═══════════════════════════════════════════════════════════
+    "<script>"
+    "let CMDS=[];let FILTER=0;"
+    "const BASE=(document.querySelector('base')||{}).href||'/';"
+    "const $=id=>document.getElementById(id);"
+    "const "
+    "esc=s=>String(s).replace(/[<>&]/"
+    "g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));"
+
+    // ─── Banner message ───
+    "function showMsg(text, ok){"
+    "let el=$('msgBanner');"
+    "if(!el){el=document.createElement('div');el.id='msgBanner';"
+    "document.body.appendChild(el);}"
+    "el.textContent=text;"
+    "el.style.background=ok?'#dcfce7':'#fee2e2';"
+    "el.style.color=ok?'#15803d':'#b91c1c';"
+    "el.style.opacity='1';"
+    "clearTimeout(window._msgTimer);"
+    "window._msgTimer=setTimeout(()=>{el.style.opacity='0';},3000);"
+    "}"
+
+    // ─── Load commands ───
+    "async function load(){"
+    "try{"
+    "const r=await fetch(BASE+'api/commands');"
+    "CMDS=await r.json();"
+    "renderCmds();"
+    "}catch(e){$('cmds').innerHTML='<span style=\"color:#c00\">load error: "
+    "'+esc(e.message)+'</span>';}"
+    "}"
+
+    // ─── Render list ───
+    "function setFilter(f){FILTER=f;"
+    "['fAll','fQ','fS'].forEach((id,i)=>$(id).classList.toggle('active',i===f))"
+    ";"
+    "renderCmds();}"
+    "function renderCmds(){"
+    "const q=($('srch').value||'').toLowerCase();"
+    "const list=CMDS.filter(c=>{"
+    "if(FILTER===1&&c.type!==0)return false;"
+    "if(FILTER===2&&c.type!==1)return false;"
+    "if(q&&!(c.label.toLowerCase().includes(q)||c.cmd.toLowerCase().includes(q)"
+    "))return false;"
+    "return true;"
+    "});"
+    "if(!list.length){$('cmds').innerHTML='<div "
+    "style=\"color:#9ca3af;padding:10px\">No matches.</div>';return;}"
+    "$('cmds').innerHTML=list.map((c,i)=>{"
+    "const origIdx=CMDS.indexOf(c);"
+    "const inp=c.type===1?'<input type=\"text\" id=\"p'+origIdx+'\" "
+    "value=\"'+esc(c.def||'')+'\">':'<span></span>';"
+    "return '<div class=\"cmd\"><div class=\"info\"><b>'+esc(c.label)+'</b>'"
+    "+'<code>'+esc(c.cmd)+'</code></div>'+inp"
+    "+'<button onclick=\"run('+origIdx+')\">Send</button></div>';"
+    "}).join('');"
+    "}"
+
+    // ─── Execute ───
+    "async function run(i){const c=CMDS[i];"
+    "const p=c.type===1?$('p'+i).value:'';"
+    "await send(c.cmd,p,c.type);}"
+    "function sendRaw(){const v=$('raw').value.trim();if(!v)return;"
+    "const sp=v.split(/\\s+/,2);"
+    "const isSet=/^P[A-Z]/.test(sp[0])&&!/^Q/.test(sp[0]);"
+    "send(sp[0],sp[1]||'',isSet?1:0);}"
+
+    "async function send(cmd,param,type){"
+    "const "
+    "body='cmd='+encodeURIComponent(cmd)+'&param='+encodeURIComponent(param||''"
+    ")+'&type='+(type||0);"
+    "try{"
+    "const r=await fetch(BASE+'api/cmd',{method:'POST',"
+    "headers:{'Content-Type':'application/x-www-form-urlencoded'},body});"
+    "const j=await r.json();"
+    "showResult(cmd,param,j);"
+    "}catch(e){"
+    "const out=$('out');"
+    "if(out.firstChild&&out.firstChild.style)out.innerHTML='';"
+    "out.insertAdjacentHTML('afterbegin',"
+    "'<div class=\"resp err\"><div class=\"resp-head\">'"
+    "+'<span class=\"resp-cmd\">'+esc(cmd)+'</span>'"
+    "+'<span class=\"badge err\">FETCH</span></div>'"
+    "+'<div class=\"raw\">'+esc(e.message)+'</div></div>');"
+    "}"
+    "}"
+
+    // ═══════════════════════════════════════════════════════════
+    //  PARSERS
+    // ═══════════════════════════════════════════════════════════
+    "function clean(s){return String(s||'').replace(/^\\s*\\(/,'').trim();}"
+    "function tok(s){return clean(s).split(/\\s+/);}"
+
+    "const MODES={P:'Power On',S:'Standby',L:'Line',B:'Battery',"
+    "F:'Fault',H:'Power Saving',D:'Shutdown'};"
+    "const BAT_TYPES=['AGM','Flooded','User','Pylontech'];"
+    "const "
+    "OUT_PRIO=['Utility→Solar→Batt','Solar→Utility→Batt','Solar→Batt→Utility'];"
+    "const CHG_PRIO={1:'Solar First',2:'Solar + Utility',3:'Only Solar'};"
+    "const GRID_RANGE=['Appliance','UPS'];"
+
+    // ─── parseDeviceStatus ───
+    "function parseDeviceStatus(s){"
+    "s=String(s||'');"
+    "if(s.length<8)return [['Raw',s]];"
+    "const b=(i)=>s[7-i]==='1';"
+    "const flags=[];"
+    "flags.push(['Bit 7: SBU Priority Version', b(7)?'نعم':'لا']);"
+    "flags.push(['Bit 6: Configuration Changed', b(6)?'نعم':'لا']);"
+    "flags.push(['Bit 5: SCC Firmware Updated', b(5)?'نعم':'لا']);"
+    "flags.push(['Bit 4: الحمل (Load ON)', b(4)?'🟢 يعمل':'⚫ "
+    "متوقف']);"
+    "flags.push(['Bit 3: Battery Steady', b(3)?'نعم':'لا']);"
+    "const code = (b(2)?4:0) | (b(1)?2:0) | (b(0)?1:0);"
+    "const chgNames = ["
+    "'لا شحن',"
+    "'شحن شمسي (SCC)',"
+    "'شحن شبكة (AC)',"
+    "'شحن شمسي + شبكة',"
+    "'Float (تعويم)',"
+    "'Equalization (معادلة)',"
+    "'محجوز',"
+    "'Float / Timer (تعويم)'"
+    "];"
+    "flags.push(['Charging Status Code', code]);"
+    "flags.push(['Charging Status', chgNames[code]||'غير معروف']);"
+    "flags.push(['Raw Binary', s]);"
+    "flags.push(['Raw Hex', "
+    "'0x'+parseInt(s,2).toString(16).toUpperCase().padStart(2,'0')]);"
+    "return flags;"
+    "}"
+
+    // ─── parseQPIGS ───
+    "function parseQPIGS(resp){"
+    "const t=tok(resp);if(t.length<20)return null;"
+    "const result = ["
+    "['Grid Voltage',t[0]+' V'],"
+    "['Grid Frequency',t[1]+' Hz'],"
+    "['AC Output Voltage',t[2]+' V'],"
+    "['AC Output Frequency',t[3]+' Hz'],"
+    "['AC Output Apparent Power',t[4]+' VA'],"
+    "['AC Output Active Power',t[5]+' W'],"
+    "['Load Percent',t[6]+' %'],"
+    "['Bus Voltage',t[7]+' V'],"
+    "['Battery Voltage',t[8]+' V'],"
+    "['Battery Charging Current',t[9]+' A'],"
+    "['Battery Capacity',t[10]+' %'],"
+    "['Inverter Temperature',t[11]+' °C'],"
+    "['PV1 Input Current',t[12]+' A'],"
+    "['PV1 Input Voltage',t[13]+' V'],"
+    "['SCC Battery Voltage',t[14]+' V'],"
+    "['Battery Discharge Current',t[15]+' A']"
+    "];"
+    "const dev = parseDeviceStatus(t[16]);"
+    "for(const d of dev) result.push(d);"
+    "result.push(['Fan Voltage Offset',t[17]]);"
+    "result.push(['EEPROM Version',t[18]]);"
+    "result.push(['PV1 Charging Power',t[19]+' W']);"
+    "return result;"
+    "}"
+
+    "function parseQPIGS2(resp){const t=tok(resp);if(t.length<2)return "
+    "null;return ["
+    "['PV2 Input Current',t[0]+' A'],['PV2 Input Voltage',t[1]+' V'],"
+    "['PV2 Charging Power',(t[2]||'0')+' W']];}"
+
+    "function parseQPIRI(resp){const t=tok(resp);if(t.length<17)return "
+    "null;return ["
+    "['Grid Rating Voltage',t[0]+' V'],['Grid Rating Current',t[1]+' A'],"
+    "['AC Output Rating Voltage',t[2]+' V'],['AC Output Rating "
+    "Frequency',t[3]+' Hz'],"
+    "['AC Output Rating Current',t[4]+' A'],['AC Output Apparent Power',t[5]+' "
+    "VA'],"
+    "['AC Output Active Power',t[6]+' W'],['Battery Rating Voltage',t[7]+' V'],"
+    "['Battery Recharge Voltage',t[8]+' V'],['Battery Under Voltage',t[9]+' "
+    "V'],"
+    "['Battery Bulk Voltage',t[10]+' V'],['Battery Float Voltage',t[11]+' V'],"
+    "['Battery Type',BAT_TYPES[+t[12]]||t[12]],['Max AC Charging "
+    "Current',t[13]+' A'],"
+    "['Max Charging Current',t[14]+' A'],['Input Voltage "
+    "Range',GRID_RANGE[+t[15]]||t[15]],"
+    "['Output Source Priority',OUT_PRIO[+t[16]]||t[16]],"
+    "['Charger Source Priority',CHG_PRIO[+t[17]]||t[17]],"
+    "['Parallel Max Num',t[18]||'—'],['Machine Type',t[19]||'—'],"
+    "['Output Mode',t[20]||'—'],"
+    "['Battery Redischarge Voltage',(t[21]||'—')+(t[21]?' V':'')]];}"
+
+    "function parseQMOD(resp){const c=clean(resp).charAt(0);"
+    "return [['Mode Char',c],['Mode',MODES[c]||'Unknown']];}"
+
+    "function parseQFLAG(resp){const s=clean(resp);"
+    "const kv={'a':'Buzzer','b':'Overload Bypass','d':'Solar Feed to Grid',"
+    "'j':'Power Saving','k':'LCD Default','u':'Overload Restart',"
+    "'v':'Over-temp Restart','x':'Backlight','y':'Alarm Primary','z':'Fault "
+    "Code Record'};"
+    "const r=[['Raw',s]];"
+    "for(let i=0;i<s.length-1;i++){"
+    "const p=s[i],c=s[i+1];"
+    "if((p==='E'||p==='D')&&kv[c])r.push([kv[c],p==='E'?'Enabled':'Disabled']);"
+    "}return r;}"
+
+    "function parseQPIWS(resp){const s=clean(resp);"
+    "const names=['PV Loss','Inverter Fault','Bus Over','Bus Under','Bus Soft "
+    "Fail',"
+    "'Line Fail','OPV Short','Inv Voltage Low','Inv Voltage High','Over "
+    "Temperature',"
+    "'Fan Locked','Batt Voltage High','Batt Low Alarm','(reserved 13)','Batt "
+    "Under Shutdown',"
+    "'Batt Derating','Overload','EEPROM Fault','Inv Over Current','Inv Soft "
+    "Fail',"
+    "'Self-Test Fail','OP DC Voltage Over','Batt Open','Current Sensor Fail'];"
+    "const r=[['Raw',s]];let any=false;"
+    "for(let i=0;i<Math.min(s.length,32);i++){"
+    "if(s[i]==='1'){r.push(['⚠ '+names[i]||('Bit '+i),'ACTIVE']);any=true;}}"
+    "if(!any)r.push(['Status','All OK ✓']);"
+    "return r;}"
+
+    "function parseQT(resp){const s=clean(resp);"
+    "if(s.length<12)return [['Raw',s]];"
+    "return [['Date','20'+s.substr(0,2)+'-'+s.substr(2,2)+'-'+s.substr(4,2)],"
+    "['Time',s.substr(6,2)+':'+s.substr(8,2)+':'+s.substr(10,2)],['Raw',s]];}"
+
+    "function parseQBEQI(resp){const t=tok(resp);if(t.length<6)return "
+    "null;return ["
+    "['Enabled',t[0]==='1'?'Yes':'No'],['Time (min)',t[1]],['Period "
+    "(days)',t[2]],"
+    "['Voltage',t[3]+' V'],['Over Time (min)',t[4]],['Max Time (min)',t[5]],"
+    "['Active Now',t[6]||'—']];}"
+
+    "function parseQBATCD(resp){const s=clean(resp);"
+    "return [['Discharge Completely',s[0]==='1'?'Yes':'No'],"
+    "['Discharge Allowed',s[1]==='1'?'Yes':'No'],"
+    "['Charge Completely',s[2]==='1'?'Yes':'No']];}"
+
+    "function parseQBOOT(resp){const c=clean(resp).charAt(0);"
+    "return [['Has Bootstrap',c==='1'?'Yes':'No']];}"
+
+    "function parseQMCHGCR(resp){const t=tok(resp);"
+    "return [['Count',t.length],['Values',t.join(', ')]];}"
+
+    "function parseQDI(resp){const t=tok(resp);if(t.length<12)return "
+    "null;return ["
+    "['AC Output Voltage',t[0]+' V'],['AC Output Frequency',t[1]+' Hz'],"
+    "['Max AC Charging Current',t[2]+' A'],['Battery Under Voltage',t[3]+' V'],"
+    "['Battery Float Voltage',t[4]+' V'],['Battery Bulk Voltage',t[5]+' V'],"
+    "['Battery Recharge Voltage',t[6]+' V'],['Max Charging Current',t[7]+' A'],"
+    "['Input Voltage Range',GRID_RANGE[+t[8]]||t[8]],"
+    "['Output Source Priority',OUT_PRIO[+t[9]]||t[9]],"
+    "['Charger Source Priority',CHG_PRIO[+t[10]]||t[10]],"
+    "['Battery Type',BAT_TYPES[+t[11]]||t[11]]];}"
+
+    "function parseQPGSn(resp){const t=tok(resp);if(t.length<10)return null;"
+    "return [['Parallel Number',t[0]],['Exists',t[1]==='1'?'Yes':'No'],"
+    "['Serial',t[2]],['Work Mode',MODES[t[3]]||t[3]],['Fault Code',t[4]],"
+    "['Grid Voltage',t[5]+' V'],['Grid Freq',t[6]+' Hz'],"
+    "['AC Output Voltage',t[7]+' V'],['AC Output Freq',t[8]+' Hz'],"
+    "['Load',t[11]+' %']];}"
+
+    "function parseQLED(resp){const t=tok(resp);return [['Raw','('+t.join(' "
+    "')+')']];}"
+    "function parseQOPPT(resp){return [['Time Order (24h)',clean(resp)]];}"
+
+    "function fmtResponse(cmd,resp){"
+    "if(!resp)return null;"
+    "const c=clean(resp);"
+    "if(c.startsWith('ACK'))return [['Result','✓ ACK (accepted)']];"
+    "if(c.startsWith('NAK'))return [['Result','✗ NAK (rejected)']];"
+    "if(cmd==='QPIGS')return parseQPIGS(resp);"
+    "if(cmd==='QPIGS2')return parseQPIGS2(resp);"
+    "if(cmd==='QPIRI')return parseQPIRI(resp);"
+    "if(cmd==='QMOD')return parseQMOD(resp);"
+    "if(cmd==='QFLAG')return parseQFLAG(resp);"
+    "if(cmd==='QPIWS')return parseQPIWS(resp);"
+    "if(cmd==='QT')return parseQT(resp);"
+    "if(cmd==='QBEQI')return parseQBEQI(resp);"
+    "if(cmd==='QBATCD')return parseQBATCD(resp);"
+    "if(cmd==='QBOOT')return parseQBOOT(resp);"
+    "if(cmd==='QMCHGCR'||cmd==='QMUCHGCR')return parseQMCHGCR(resp);"
+    "if(cmd==='QDI')return parseQDI(resp);"
+    "if(cmd.startsWith('QPGS'))return parseQPGSn(resp);"
+    "if(cmd==='QLED')return parseQLED(resp);"
+    "if(cmd==='QOPPT'||cmd==='QCHPT')return parseQOPPT(resp);"
+    "return null;}"
+
+    "function showResult(cmd,param,j){"
+    "const out=$('out');"
+    "if(out.firstChild&&out.firstChild.style)out.innerHTML='';"
+    "const fullCmd=cmd+(param||'');"
+    "const ok=j.ok;"
+    "const resp=j.response||'';"
+    "const parsed=ok?fmtResponse(cmd,resp):null;"
+    "const t=new Date().toLocaleTimeString();"
+    "let html='<div class=\"resp '+(ok?'ok':'err')+'\">';"
+    "html+='<div class=\"resp-head\">';"
+    "html+='<span class=\"resp-cmd\">'+esc(fullCmd)+'</span>';"
+    "html+='<span class=\"badge "
+    "'+(ok?'ok':'err')+'\">'+(ok?'OK':'ERR')+'</span>';"
+    "if(j.error)html+='<span class=\"badge err\">'+esc(j.error)+'</span>';"
+    "html+='<span class=\"resp-time\">'+t+'</span>';"
+    "html+='</div>';"
+    "if(parsed&&parsed.length){"
+    "html+='<table class=\"kv\">';"
+    "for(const kv of "
+    "parsed){html+='<tr><td>'+esc(kv[0])+'</td><td>'+esc(kv[1])+'</td></tr>';}"
+    "html+='</table>';}"
+    "if(resp){html+='<div class=\"raw\"><div "
+    "class=\"raw-label\">RAW</div>'+esc(resp)+'</div>';}"
+    "html+='</div>';"
+    "out.insertAdjacentHTML('afterbegin',html);"
+    "while(out.children.length>20)out.removeChild(out.lastChild);"
+    "}"
+
+    // ═══════════════ Save Battery ═══════════════
+    "async function saveBattery(){"
+    "const body='type='+encodeURIComponent($('batType').value)"
+    "+'&cap='+encodeURIComponent($('batCap').value)"
+    "+'&vEmpty='+encodeURIComponent($('batVEmpty').value)"
+    "+'&vFull='+encodeURIComponent($('batVFull').value);"
+    "try{"
+    "const r=await fetch(BASE+'api/battery',{method:'POST',"
+    "headers:{'Content-Type':'application/x-www-form-urlencoded'},body});"
+    "const j=await r.json();"
+    "showMsg(j.ok?('Battery saved ('+j.cap+' Ah)'):('Error: "
+    "'+(j.error||'failed')), j.ok);"
+    "}catch(e){showMsg('Error: '+e.message, false);}"
+    "}"
+
+    // ═══════════════ Save Smart Charger ═══════════════
+    "async function saveSmartCharger(){"
+    "const body='mode='+encodeURIComponent($('scMode').value)"
+    "+'&ac='+encodeURIComponent($('scAC').value)"
+    "+'&total='+encodeURIComponent($('scTotal').value)"
+    "+'&fAC='+encodeURIComponent($('scFloatAC').value)"
+    "+'&fTotal='+encodeURIComponent($('scFloatTotal').value)"
+    "+'&temp='+encodeURIComponent($('scTemp').value);"
+    "try{"
+    "const r=await fetch(BASE+'api/smartcharger',{method:'POST',"
+    "headers:{'Content-Type':'application/x-www-form-urlencoded'},body});"
+    "const j=await r.json();"
+    "showMsg(j.ok?'Smart charger saved':('Error: '+(j.error||'failed')), j.ok);"
+    "}catch(e){showMsg('Error: '+e.message, false);}"
+    "}"
+
+    // ═══════════════ Save Power Mode ═══════════════
+    "async function savePowerMode(){"
+    "const body='em='+$('pmSocEm').value"
+    "+'&ps='+$('pmSocPs').value"
+    "+'&rec='+$('pmSocRec').value"
+    "+'&surp='+$('pmSocSurp').value"
+    "+'&gv='+$('pmGridV').value;"
+    "try{"
+    "const r=await fetch(BASE+'api/powermode',{method:'POST',"
+    "headers:{'Content-Type':'application/x-www-form-urlencoded'},body});"
+    "const j=await r.json();"
+    "showMsg(j.ok?'Power mode saved':('Error: '+(j.error||'failed')), j.ok);"
+    "}catch(e){showMsg('Error: '+e.message, false);}"
+    "}"
+
+    // ═══════════════ Load inputs (مرة واحدة) ═══════════════
+    "let inputsLoaded=false;"
+    "async function loadInputs(){"
+    "if(inputsLoaded)return;"
+    "try{"
+    "const r=await fetch(BASE+'api/status');"
+    "const s=await r.json();"
+    "$('batType').value=s.batType||'User';"
+    "$('batCap').value=s.batCap||100;"
+    "$('batVEmpty').value=s.batVEmpty||42;"
+    "$('batVFull').value=s.batVFull||54;"
+    "$('scMode').value=s.scMode||1;"
+    "$('scAC').value=s.scAC||40;"
+    "$('scTotal').value=s.scTotal||80;"
+    "$('scFloatAC').value=s.scFloatAC||2;"
+    "$('scFloatTotal').value=s.scFloatTotal||10;"
+    "$('scTemp').value=s.scTemp||70;"
+    "$('pmSocEm').value=s.pmEm||10;"
+    "$('pmSocPs').value=s.pmPs||25;"
+    "$('pmSocRec').value=s.pmRec||30;"
+    "$('pmSocSurp').value=s.pmSurp||88;"
+    "$('pmGridV').value=s.pmGridV||150;"
+    "inputsLoaded=true;"
+    "}catch(e){}"
+    "}"
+
+    // ═══════════════ Update Status Box (كل 5s) ═══════════════
+    "async function updateStatusBox(){"
+    "try{"
+    "const r=await fetch(BASE+'api/status');"
+    "const s=await r.json();"
+    "$('statusBox').innerHTML="
+    "'<b>SOC:</b> '+(s.soc||0).toFixed(1)+'%<br>'"
+    "+'<b>SOH:</b> '+(s.soh||100).toFixed(1)+'%<br>'"
+    "+'<b>Voltage:</b> '+(s.voltage||0).toFixed(2)+' V<br>'"
+    "+'<b>Net:</b> '+(s.netPower||0).toFixed(0)+' W<br>'"
+    "+'<b>Remaining:</b> '+(s.remKWh||0).toFixed(2)+' kWh<br>'"
+    "+'<b>Stage:</b> '+(s.stage||'-')+'<br>'"
+    "+'<b>Status:</b> '+(s.status||'-')+'<br>'"
+    "+'<b>Power Mode:</b> '+(s.powerMode||'-')+'<br>'"
+    "+'<b>Storage saves:</b> '+(s.saves||0);"
+    "}catch(e){$('statusBox').textContent='err: '+e.message;}"
+    "}"
+
+    // ═══════════════ Init ═══════════════
+    "loadInputs();"
+    "setInterval(updateStatusBox, 5000);"
+    "updateStatusBox();"
+    "load();"
+    "</script></body></html>";
+
+// ═══════════════════════════════════════════════════════════════
+//  JSON escape
+// ═══════════════════════════════════════════════════════════════
+static size_t voltJsonEscape(char* dst, size_t dstLen, const char* src)
+{
+  size_t w = 0;
+  if (!src)
+  {
+    if (dstLen)
+      dst[0] = '\0';
+    return 0;
+  }
+  while (*src && w + 8 < dstLen)
+  {
+    uint8_t c = (uint8_t)*src++;
+    switch (c)
+    {
+      case '"':
+        dst[w++] = '\\';
+        dst[w++] = '"';
+        break;
+      case '\\':
+        dst[w++] = '\\';
+        dst[w++] = '\\';
+        break;
+      case '\n':
+        dst[w++] = '\\';
+        dst[w++] = 'n';
+        break;
+      case '\r':
+        dst[w++] = '\\';
+        dst[w++] = 'r';
+        break;
+      default:
+        if (c < 0x20)
+          w += snprintf(dst + w, dstLen - w, "\\u%04x", c);
+        else
+          dst[w++] = (char)c;
+    }
+  }
+  dst[w] = '\0';
+  return w;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Config
+// ═══════════════════════════════════════════════════════════════
+void VoltronicMAX::attachWebServer(VoltWebServer* server)
+{
+  if (!server)
+    return;
+  _webServer = server;
+  _webAuthOn = false;
+  _webUser[0] = '\0';
+  _webPass[0] = '\0';
+  _webPrefix[0] = '\0';
+  _webRegisterRoutes();
+  Serial.println(F("[Voltronic] Web registered (no auth)"));
+}
+
+void VoltronicMAX::attachWebServer(VoltWebServer* server, const char* user, const char* pass)
+{
+  if (!user || !pass || !*user || !*pass)
+  {
+    attachWebServer(server);
+    return;
+  }
+  _webServer = server;
+  strncpy(_webUser, user, sizeof(_webUser) - 1);
+  _webUser[sizeof(_webUser) - 1] = '\0';
+  strncpy(_webPass, pass, sizeof(_webPass) - 1);
+  _webPass[sizeof(_webPass) - 1] = '\0';
+  _webAuthOn = true;
+  _webPrefix[0] = '\0';
+  _webRegisterRoutes();
+  Serial.println(F("[Voltronic] Web registered (auth ON)"));
+}
+
+void VoltronicMAX::setWebPrefix(const char* prefix)
+{
+  if (!prefix)
+  {
+    _webPrefix[0] = '\0';
+    return;
+  }
+  strncpy(_webPrefix, prefix, sizeof(_webPrefix) - 1);
+  _webPrefix[sizeof(_webPrefix) - 1] = '\0';
+  size_t n = strlen(_webPrefix);
+  if (n > 0 && _webPrefix[n - 1] == '/')
+    _webPrefix[n - 1] = '\0';
+}
+
+bool VoltronicMAX::_webRequireAuth()
+{
+  if (!_webAuthOn)
+    return true;
+  if (_webServer->authenticate(_webUser, _webPass))
+    return true;
+  _webServer->requestAuthentication();
+  return false;
+}
+
+// ─── GET / ───
+void VoltronicMAX::_webHandlePage()
+{
+  if (!_webRequireAuth())
+    return;
+
+  _webServer->setContentLength(CONTENT_LENGTH_UNKNOWN);
+  _webServer->send(200, "text/html", "");
+  _webServer->sendContent_P(VHTML_P1);
+
+  char baseBuf[48];
+  snprintf_P(baseBuf, sizeof(baseBuf), PSTR("<base href='%s/'>"), _webPrefix);
+  _webServer->sendContent(baseBuf);
+
+  _webServer->sendContent_P(VHTML_P2);
+  _webServer->sendContent("");
+}
+
+// ─── GET /api/commands ───
+void VoltronicMAX::_webHandleList()
+{
+  if (!_webRequireAuth())
+    return;
+  _webServer->setContentLength(CONTENT_LENGTH_UNKNOWN);
+  _webServer->send(200, "application/json", "");
+  _webServer->sendContent(F("["));
+  for (size_t i = 0; i < VWEB_CMDS_N; i++)
+  {
+    VoltWebCmdEntry e;
+    memcpy_P(&e, &VWEB_CMDS[i], sizeof(e));
+    char row[200];
+    snprintf_P(row,
+               sizeof(row),
+               PSTR("%s{\"cmd\":\"%s\",\"label\":\"%s\",\"type\":%u,\"def\":\"%s\"}"),
+               (i ? "," : ""),
+               e.cmd,
+               e.label,
+               (unsigned)e.type,
+               e.defParam);
+    _webServer->sendContent(row);
+  }
+  _webServer->sendContent(F("]"));
+  _webServer->sendContent("");
+}
+
+// ─── POST /api/cmd ───
+void VoltronicMAX::_webHandleExecute()
+{
+  if (!_webRequireAuth())
+    return;
+  if (!_webServer->hasArg("cmd"))
+  {
+    _webServer->send_P(400, PSTR("application/json"), PSTR("{\"error\":\"missing cmd\"}"));
+    return;
+  }
+
+  // ─── نسخ فوري من String المؤقت إلى char[] ───
+  char cmd[24] = {0};
+  char param[24] = {0};
+  strncpy(cmd, _webServer->arg("cmd").c_str(), sizeof(cmd) - 1);
+  strncpy(param, _webServer->arg("param").c_str(), sizeof(param) - 1);
+  uint8_t type = (uint8_t)_webServer->arg("type").toInt();
+
+  // ─── بناء الأمر الكامل في char[] ───
+  char full[VOLTRONIC_CMD_BUF_SIZE] = {0};
+  size_t cmdLen = strlen(cmd);
+  size_t paramLen = strlen(param);
+
+  if (cmdLen + paramLen >= sizeof(full))
+  {
+    _webServer->send_P(400, PSTR("application/json"), PSTR("{\"error\":\"cmd too long\"}"));
+    return;
+  }
+
+  memcpy(full, cmd, cmdLen);
+  memcpy(full + cmdLen, param, paramLen);
+  full[cmdLen + paramLen] = '\0';
+
+  bool ok = (type == 1) ? sendRawSetting(full) : sendRaw(full);
+
+  const char* raw = lastResponse();
+  static char esc[512];
+  voltJsonEscape(esc, sizeof(esc), raw ? raw : "");
+
+  static char out[768];
+  snprintf_P(out,
+             sizeof(out),
+             PSTR("{\"ok\":%s,\"cmd\":\"%s\",\"response\":\"%s\",\"error\":\"%s\"}"),
+             ok ? "true" : "false",
+             full,
+             esc,
+             ok ? "" : lastErrorName());
+
+  _webServer->send(200, "application/json", out);
+}
+
+// ─── POST /api/battery ───
+void VoltronicMAX::_webHandleBattery()
+{
+  if (!_webRequireAuth())
+    return;
+
+  if (_webServer->hasArg("type"))
+    battery.setType(VoltronicBattery::typeFromString(_webServer->arg("type").c_str()));
+  if (_webServer->hasArg("cap"))
+    battery.setCapacity(_webServer->arg("cap").toFloat());
+  if (_webServer->hasArg("vEmpty"))
+    battery.setVoltageEmpty(_webServer->arg("vEmpty").toFloat());
+  if (_webServer->hasArg("vFull"))
+    battery.setVoltageFull(_webServer->arg("vFull").toFloat());
+
+  storage.save(*this);
+
+  char buf[128];
+  snprintf_P(buf,
+             sizeof(buf),
+             PSTR("{\"ok\":true,\"cap\":%.0f,\"type\":\"%s\"}"),
+             battery.capacityAh(),
+             battery.typeName());
+  _webServer->send(200, "application/json", buf);
+
+  VLOG("[Web] Battery saved: %.0fAh, type=%s\n", battery.capacityAh(), battery.typeName());
+}
+
+// ─── POST /api/smartcharger ───
+void VoltronicMAX::_webHandleSmartCharger()
+{
+  if (!_webRequireAuth())
+    return;
+
+  if (_webServer->hasArg("mode"))
+    smartCharger.setMode((VoltronicSmartCharger::Mode)_webServer->arg("mode").toInt());
+  if (_webServer->hasArg("ac"))
+    smartCharger.setTargetAC(_webServer->arg("ac").toInt());
+  if (_webServer->hasArg("total"))
+    smartCharger.setTargetTotal(_webServer->arg("total").toInt());
+  if (_webServer->hasArg("fAC"))
+    smartCharger.setFloatAC(_webServer->arg("fAC").toInt());
+  if (_webServer->hasArg("fTotal"))
+    smartCharger.setFloatTotal(_webServer->arg("fTotal").toInt());
+  if (_webServer->hasArg("temp"))
+    smartCharger.setTempProtectC(_webServer->arg("temp").toInt());
+
+  storage.save(*this);
+
+  _webServer->send_P(200, PSTR("application/json"), PSTR("{\"ok\":true}"));
+
+  VLOG("[Web] SmartCharger saved: mode=%u AC=%u T=%u\n",
+       (unsigned)smartCharger.mode(),
+       smartCharger.targetAC(),
+       smartCharger.targetTotal());
+}
+
+// ─── GET /api/status ───
+void VoltronicMAX::_webHandleStatus()
+{
+  if (!_webRequireAuth())
+    return;
+
+  char buf[768];
+  snprintf_P(buf,
+             sizeof(buf),
+             PSTR("{\"batType\":\"%s\",\"batCap\":%.0f,\"batVEmpty\":%.1f,"
+                  "\"batVFull\":%.1f,"
+                  "\"scMode\":%u,\"scAC\":%u,\"scTotal\":%u,\"scFloatAC\":%u,"
+                  "\"scFloatTotal\":%u,"
+                  "\"scTemp\":%u,\"soc\":%.1f,\"soh\":%.1f,\"voltage\":%.2f,"
+                  "\"netPower\":%.0f,"
+                  "\"remKWh\":%.3f,\"stage\":\"%s\",\"status\":\"%s\","
+                  "\"powerMode\":\"%s\",\"saves\":%u,"
+                  "\"pmEm\":%.0f,\"pmPs\":%.0f,\"pmRec\":%.0f,\"pmSurp\":%.0f,"
+                  "\"pmGridV\":%.0f}"),
+             battery.typeName(),
+             battery.capacityAh(),
+             battery.voltageEmpty(),
+             battery.voltageFull(),
+             (unsigned)smartCharger.mode(),
+             smartCharger.targetAC(),
+             smartCharger.targetTotal(),
+             smartCharger.floatAC(),
+             smartCharger.floatTotal(),
+             smartCharger.tempProtectC(),
+             battery.soc(),
+             battery.soh(),
+             battery.voltage(),
+             battery.netPower(),
+             battery.remainingKWh(),
+             smartCharger.stage(),
+             smartCharger.status(),
+             powerMode.modeNameEn(),
+             storage.saves(),
+             powerMode.socEmergency(),
+             powerMode.socPowerSaving(),
+             powerMode.socRecover(),
+             powerMode.socSurplus(),
+             powerMode.gridMinVoltage());
+
+  _webServer->send(200, "application/json", buf);
+}
+
+// ─── POST /api/powermode ───
+void VoltronicMAX::_webHandlePowerMode()
+{
+  if (!_webRequireAuth())
+    return;
+
+  if (_webServer->hasArg("em"))
+    powerMode.setSocEmergency(_webServer->arg("em").toFloat());
+  if (_webServer->hasArg("ps"))
+    powerMode.setSocPowerSaving(_webServer->arg("ps").toFloat());
+  if (_webServer->hasArg("rec"))
+    powerMode.setSocRecover(_webServer->arg("rec").toFloat());
+  if (_webServer->hasArg("surp"))
+    powerMode.setSocSurplus(_webServer->arg("surp").toFloat());
+  if (_webServer->hasArg("gv"))
+    powerMode.setGridMinVoltage(_webServer->arg("gv").toFloat());
+
+  storage.save(*this);
+  _webServer->send_P(200, PSTR("application/json"), PSTR("{\"ok\":true}"));
+}
+
+// ─── Routes ───
+void VoltronicMAX::_webRegisterRoutes()
+{
+  if (!_webServer)
+    return;
+
+  static char pRoot[24], pList[48], pCmd[48], pBat[32], pSC[32], pSt[32], pPM[32];
+  snprintf_P(pRoot, sizeof(pRoot), PSTR("%s/"), _webPrefix);
+  snprintf_P(pList, sizeof(pList), PSTR("%s/api/commands"), _webPrefix);
+  snprintf_P(pCmd, sizeof(pCmd), PSTR("%s/api/cmd"), _webPrefix);
+  snprintf_P(pBat, sizeof(pBat), PSTR("%s/api/battery"), _webPrefix);
+  snprintf_P(pSC, sizeof(pSC), PSTR("%s/api/smartcharger"), _webPrefix);
+  snprintf_P(pSt, sizeof(pSt), PSTR("%s/api/status"), _webPrefix);
+  snprintf_P(pPM, sizeof(pPM), PSTR("%s/api/powermode"), _webPrefix);
+
+  _webServer->on(pRoot,
+                 HTTP_GET,
+                 [this]()
+                 {
+                   _webHandlePage();
+                 });
+  _webServer->on(pList,
+                 HTTP_GET,
+                 [this]()
+                 {
+                   _webHandleList();
+                 });
+  _webServer->on(pCmd,
+                 HTTP_POST,
+                 [this]()
+                 {
+                   _webHandleExecute();
+                 });
+  _webServer->on(pBat,
+                 HTTP_POST,
+                 [this]()
+                 {
+                   _webHandleBattery();
+                 });
+  _webServer->on(pSC,
+                 HTTP_POST,
+                 [this]()
+                 {
+                   _webHandleSmartCharger();
+                 });
+  _webServer->on(pSt,
+                 HTTP_GET,
+                 [this]()
+                 {
+                   _webHandleStatus();
+                 });
+  _webServer->on(pPM,
+                 HTTP_POST,
+                 [this]()
+                 {
+                   _webHandlePowerMode();
+                 });
+
+  VLOG("[Voltronic] Web routes at \"%s\"\n", _webPrefix);
+}
+
+#endif  // VOLTRONIC_USE_WEB
+```
+
+## src/VoltronicMAX.h
+
+```h
+#pragma once
+#include <Arduino.h>
+#include "VoltronicBattery.h"
+#include "VoltronicCommands.h"
+#include "VoltronicConfig.h"
+#include "VoltronicCRC.h"
+#include "VoltronicLang.h"
+#include "VoltronicParser.h"
+#include "VoltronicPowerMode.h"
+#include "VoltronicSmartCharger.h"
+#include "VoltronicStorage.h"
+#include "VoltronicTransport.h"
+#include "VoltronicTypes.h"
+// ═══════════════════════════════════════════════════════════════
+//  Web server type (opt-in via VOLTRONIC_USE_WEB)
+//  ⚠️ نستخدم ARDUINO_ARCH_* (المعيار الرسمي)
+// ═══════════════════════════════════════════════════════════════
+#if defined(VOLTRONIC_USE_WEB)
+#  if defined(ARDUINO_ARCH_ESP8266)
+#    include <ESP8266WebServer.h>
+#    define VoltWebServer ESP8266WebServer
+#  elif defined(ARDUINO_ARCH_ESP32)
+#    include <WebServer.h>
+#    define VoltWebServer WebServer
+#  else
+#    error "VOLTRONIC_USE_WEB requires ESP8266 or ESP32"
+#  endif
+#endif
+
+class VoltronicMAX
+{
+ public:
+  VoltronicBattery battery;  // ← عضو عام
+  VoltronicSmartCharger smartCharger;
+  VoltronicPowerMode powerMode;
+  VoltronicStorage storage;
+  VoltronicLang lang;
+  enum Error : uint8_t
+  {
+    ERR_NONE = 0,
+    ERR_TIMEOUT,
+    ERR_SHORT,
+    ERR_CRC,
+    ERR_NAK,
+    ERR_BAD_RESP,
+    ERR_PARSE,
+    ERR_BUSY,
+    ERR_TOO_LONG,
+  };
+
+  explicit VoltronicMAX(Stream& serial);
+
+  // ─── Init ───
+  bool begin(const VoltronicConfig& cfg);
+  bool begin(uint32_t baud = VOLTRONIC_DEFAULT_BAUD);
+  void setTimeout(uint16_t ms);
+  void setRetries(uint8_t r);
+
+  // ─── Raw ───
+  bool sendRaw(const char* cmd);
+  bool sendRawSetting(const char* cmd);
+
+  // ─── Inquiry (25) ───
+  bool queryProtocolID(char* out, size_t len);
+  bool querySerialNumber(char* out, size_t len);
+  bool querySerialNumberLong(char* out, size_t len);
+  bool queryFirmware(char* out, size_t len);
+  bool queryFirmware2(char* out, size_t len);
+  bool queryBluetoothVersion(char* out, size_t len);
+  bool queryModelName(char* out, size_t len);
+  bool queryGeneralModelName(char* out, size_t len);
+  bool queryBoot(bool& hasBootstrap);
+  bool queryRating();
+  bool queryGeneralStatus();
+  bool queryGeneralStatus2();
+  bool queryMode();
+  bool queryWarnings();
+  bool queryFlags();
+  bool queryDefaults();
+  bool queryParallel(uint8_t n);
+  bool queryBatteryEqualization();
+  bool queryLed();
+  bool queryBatteryControl();
+  bool queryTime(char* out, size_t len);
+  bool queryMaxChargingCurrents();
+  bool queryMaxUtilityChargingCurrents();
+  bool queryOutputPriorityTimeOrder();
+  bool queryChargerPriorityTimeOrder();
+
+  // ─── Settings (30) ───
+  bool setFlag(char flag);
+  bool clearFlag(char flag);
+  bool resetDefaults();
+  bool setMaxChargingCurrent(uint16_t amps);
+  bool setMaxUtilityChargingCurrent(uint16_t amps);
+  bool setMaxDischargingCurrent(uint16_t amps);
+  bool setOutputVoltage(uint16_t volts);
+  bool setOutputFrequency(uint8_t hz);
+  bool setOutputSourcePriority(uint8_t p);
+  bool setOutputMode(uint8_t mode);
+  bool setBatteryRechargeVoltage(float v);
+  bool setBatteryRedischargeVoltage(float v);
+  bool setBatteryCutoffVoltage(float v);
+  bool setBatteryCvVoltage(float v);
+  bool setBatteryFloatVoltage(float v);
+  bool setChargerSourcePriority(uint8_t p);
+  bool setGridWorkingRange(uint8_t r);
+  bool setBatteryType(uint8_t t);
+  bool setParallelChargerPriority(uint8_t m, uint8_t p);
+  bool resetEnergy();
+  bool eraseLog();
+  bool setBatteryEqualizationEnabled(bool en);
+  bool setBatteryEqualizationTime(uint16_t min);
+  bool setBatteryEqualizationPeriod(uint16_t days);
+  bool setBatteryEqualizationVoltage(float v);
+  bool setBatteryEqualizationOverTime(uint16_t min);
+  bool activateBatteryEqualization(bool active);
+  bool setMaxCvChargingTime(uint16_t min);
+  bool setDateTime(const char* yymmddhhmmss);
+  bool setBatteryControl(uint8_t a, uint8_t b, uint8_t c);
+
+  // ─── Data access ───
+  const QPIGSData& qpigs() const
+  {
+    return _qpigs;
+  }
+  const QPIGS2Data& qpigs2() const
+  {
+    return _qpigs2;
+  }
+  const QPIRIData& qpiri() const
+  {
+    return _qpiri;
+  }
+  const QFLAGData& qflag() const
+  {
+    return _qflag;
+  }
+  const ParallelInfo& parallel() const
+  {
+    return _parallel;
+  }
+  const BatteryEqualizationInfo& equalization() const
+  {
+    return _beqi;
+  }
+  const LedInfo& led() const
+  {
+    return _led;
+  }
+  const DefaultsInfo& defaults() const
+  {
+    return _defaults;
+  }
+  const BatteryControlStatus& batteryCtrl() const
+  {
+    return _batcd;
+  }
+  const SelectableValues& maxChgOptions() const
+  {
+    return _maxChg;
+  }
+  const SelectableValues& maxUtilChgOptions() const
+  {
+    return _maxUtilChg;
+  }
+  const TimeOrderInfo& outputTimeOrder() const
+  {
+    return _outputTO;
+  }
+  const TimeOrderInfo& chargerTimeOrder() const
+  {
+    return _chargerTO;
+  }
+
+  WarningDecoded warnings() const
+  {
+    WarningDecoded w;
+    w.raw = _warningsRaw;
+    return w;
+  }
+  char mode() const
+  {
+    return _mode;
+  }
+  const char* modeString() const
+  {
+    return VoltronicParser::modeToString(_mode);
+  }
+  uint32_t validBits() const
+  {
+    return _validBits;
+  }
+  bool hasBoot() const
+  {
+    return _hasBoot;
+  }
+
+  // ─── Polling ───
+  void startPolling(const VoltronicPollSchedule& schedule);
+  void startPolling();
+  void stopPolling();
+  bool poll();
+  bool pollingCycleDone() const
+  {
+    return _pollCycleDone;
+  }
+  uint32_t pollingCycles() const
+  {
+    return _pollCycles;
+  }
+
+  // ─── Status ───
+  Error lastError() const
+  {
+    return _lastError;
+  }
+  const char* lastResponse() const
+  {
+    return _respBuf;
+  }
+  const char* lastCommand() const
+  {
+    return _cmdBuf;
+  }
+  size_t lastResponseLen() const
+  {
+    return _respLen;
+  }
+  const char* lastErrorName() const;
+
+  // ═══════════════════════════════════════════════════════════
+  //  Web Console (opt-in)
+  // ═══════════════════════════════════════════════════════════
+#if defined(VOLTRONIC_USE_WEB)
+  void attachWebServer(VoltWebServer* server);
+  void attachWebServer(VoltWebServer* server, const char* user, const char* pass);
+  void setWebPrefix(const char* prefix);
+#endif
+
+ private:
+  // ─── Core ───
+  VoltronicTransport _transport;
+  VoltronicConfig _localCfg;
+
+  char _respBuf[VOLTRONIC_RESP_BUF_SIZE];
+  size_t _respLen = 0;
+  char _cmdBuf[VOLTRONIC_CMD_BUF_SIZE];
+
+  QPIGSData _qpigs;
+  QPIGS2Data _qpigs2;
+  QPIRIData _qpiri;
+  QFLAGData _qflag;
+  ParallelInfo _parallel;
+  BatteryEqualizationInfo _beqi;
+  LedInfo _led;
+  DefaultsInfo _defaults;
+  BatteryControlStatus _batcd;
+  SelectableValues _maxChg;
+  SelectableValues _maxUtilChg;
+  TimeOrderInfo _outputTO;
+  TimeOrderInfo _chargerTO;
+  uint64_t _warningsRaw = 0;
+  char _mode = ' ';
+  bool _hasBoot = false;
+  uint32_t _validBits = 0;
+
+  Error _lastError = ERR_NONE;
+
+  // ─── Polling ───
+  VoltronicPollSchedule _pollSchedule;
+  bool _pollEnabled = false;
+  uint8_t _pollIndex = 0;
+  uint32_t _pollLastFire[9] = {0};
+  uint32_t _pollCycles = 0;
+  bool _pollCycleDone = false;
+
+  // ─── Helpers ───
+  bool transact(const char* cmd, bool expectAck);
+  bool buildFrame(const char* cmd, uint8_t* out, size_t& outLen);
+  bool checkCRC();
+  bool isAck() const;
+  bool isNak() const;
+  const char* payloadStart() const;
+  void applyPrintableFilter();
+  bool execPollQuery(uint8_t idx);
+  uint16_t getPollInterval(uint8_t idx) const;
+
+  // ═══════════════════════════════════════════════════════════
+  //  Web members (opt-in)
+  // ═══════════════════════════════════════════════════════════
+#if defined(VOLTRONIC_USE_WEB)
+  VoltWebServer* _webServer = nullptr;
+  char _webPrefix[24];
+  char _webUser[32];
+  char _webPass[64];
+  bool _webAuthOn = false;
+  void _webHandleBattery();
+  void _webHandleSmartCharger();
+  void _webHandleStatus();
+  void _webRegisterRoutes();
+  bool _webRequireAuth();
+  void _webHandlePage();
+  void _webHandleList();
+  void _webHandleExecute();
+  void _webHandlePowerMode();
+#endif
+};
+```
+
+## src/VoltronicMAXCompat.h
+
+```h
+#pragma once
+// ═══════════════════════════════════════════════════════════════
+//  Compat shim — يخلي كودك القديم يشتغل مع المكتبة الجديدة
+//  بدون ما تغير استدعاءاتك
+// ═══════════════════════════════════════════════════════════════
+
+#include "VoltronicMAX.h"
+
+// Global instance — يتعرف على SoftwareSerial أو HardwareSerial
+// بما إن Stream هي base class، الاثنين يشتغلوا
+extern VoltronicMAX* voltronicInstance;
+
+inline void voltronicAttach(Stream& serial, uint32_t baud = 2400)
+{
+  static VoltronicMAX inst(serial);
+  voltronicInstance = &inst;
+  inst.begin(baud);
+  inst.setTimeout(800);
+}
+
+// ─── Wrappers متوافقة مع أسماء دوالك ───
+inline String sendInverterCmd(String cmd)
+{
+  if (!voltronicInstance)
+    return "";
+  voltronicInstance->sendRaw(cmd.c_str());
+  if (voltronicInstance->lastError() != VoltronicMAX::ERR_NONE)
+    return "";
+  return String(voltronicInstance->lastResponse());
+}
+
+inline String sendInverterCmd(const char* cmd)
+{
+  return sendInverterCmd(String(cmd));
+}
+
+// ─── CRC ───
+inline uint16_t calculateCRC(const uint8_t* p, uint8_t len)
+{
+  return voltronicCRC(p, len);
+}
+
+// ─── Parsers — نفس الأسماء ───
+inline void parseQPIGS(String resp)
+{
+  if (!voltronicInstance)
+    return;
+  VoltronicParser::parseQPIGS(resp.c_str(), voltronicInstance->dataRef());
+}
+
+inline void parseQPIGS2(String resp)
+{
+  if (!voltronicInstance)
+    return;
+  VoltronicParser::parseQPIGS2(resp.c_str(), voltronicInstance->dataRef());
+}
+
+inline void parseQPIRI(String resp)
+{
+  if (!voltronicInstance)
+    return;
+  VoltronicParser::parseQPIRI(resp.c_str(), voltronicInstance->ratingRef());
+}
+
+inline void parseQMOD(String resp)
+{
+  if (!voltronicInstance)
+    return;
+  VoltronicParser::parseQMOD(resp.c_str(), voltronicInstance->dataRef());
+}
+
+inline void parseQPIWS(String resp)
+{
+  if (!voltronicInstance)
+    return;
+  VoltronicParser::parseQPIWS(resp.c_str(), voltronicInstance->dataRef());
+}
+
+inline void parseQFLAG(String resp)
+{
+  if (!voltronicInstance)
+    return;
+  VoltronicParser::parseQFLAG(resp.c_str(), voltronicInstance->flagsRef());
+}
+
+inline void parseQID(String resp)
+{
+  if (!voltronicInstance)
+    return;
+  if (resp.startsWith("("))
+  {
+    // احفظه بمكانك
+  }
+}
+
+// ─── Settings wrappers ───
+inline void setOutputPriority(String p)
+{
+  p.trim();
+  if (p == "UtilitySolarBat")
+    voltronicInstance->setOutputSourcePriority(0);
+  else if (p == "SolarUtilityBat")
+    voltronicInstance->setOutputSourcePriority(1);
+  else if (p == "SolarBatUtility")
+    voltronicInstance->setOutputSourcePriority(2);
+}
+
+inline void setChargerPriority(String p)
+{
+  p.trim();
+  if (p == "Solar first")
+    voltronicInstance->setChargerSourcePriority(1);
+  else if (p == "Solar + Utility")
+    voltronicInstance->setChargerSourcePriority(2);
+  else if (p == "Only solar")
+    voltronicInstance->setChargerSourcePriority(3);
+}
+
+inline void setInputVoltageRange(String r)
+{
+  r.trim();
+  if (r == "Appliance")
+    voltronicInstance->setGridWorkingRange(0);
+  else if (r == "UPS")
+    voltronicInstance->setGridWorkingRange(1);
+}
+
+inline void setMaxChargeCurrent(int amps)
+{
+  voltronicInstance->setMaxChargingCurrent(amps);
+}
+
+inline void setMaxUtilChargeCurrent(int amps)
+{
+  voltronicInstance->setMaxUtilityChargingCurrent(amps);
+}
+```
+
+## src/VoltronicParser.cpp
+
+```cpp
+#include "VoltronicParser.h"
+#include <stdlib.h>
+#include <string.h>
+
+// ═══════════════════════════════════════════════════════════════
+//  Numeric helpers
+// ═══════════════════════════════════════════════════════════════
+uint16_t VoltronicParser::strToU16x10(const char* s)
+{
+  uint32_t intPart = 0, fracPart = 0;
+  uint8_t digits = 0;
+  while (*s >= '0' && *s <= '9')
+    intPart = intPart * 10 + (*s++ - '0');
+  if (*s == '.')
+  {
+    s++;
+    while (*s >= '0' && *s <= '9' && digits < 2)
+    {
+      fracPart = fracPart * 10 + (*s++ - '0');
+      digits++;
+    }
+    if (digits == 1)
+      fracPart *= 10;
+  }
+  return (uint16_t)(intPart * 10 + fracPart / 10);
+}
+
+uint16_t VoltronicParser::strToU16x100(const char* s)
+{
+  uint32_t intPart = 0, fracPart = 0;
+  while (*s >= '0' && *s <= '9')
+    intPart = intPart * 10 + (*s++ - '0');
+  if (*s == '.')
+  {
+    s++;
+    uint8_t digits = 0;
+    while (*s >= '0' && *s <= '9' && digits < 2)
+    {
+      fracPart = fracPart * 10 + (*s++ - '0');
+      digits++;
+    }
+    if (digits == 1)
+      fracPart *= 10;
+  }
+  return (uint16_t)(intPart * 100 + fracPart);
+}
+
+uint16_t VoltronicParser::strToU16(const char* s)
+{
+  return (uint16_t)strtoul(s, nullptr, 10);
+}
+
+uint8_t VoltronicParser::strToU8(const char* s)
+{
+  return (uint8_t)strtoul(s, nullptr, 10);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Helpers
+// ═══════════════════════════════════════════════════════════════
+void VoltronicParser::skipSpaces(const char*& p)
+{
+  while (*p == ' ')
+    p++;
+}
+
+bool VoltronicParser::readToken(const char*& p, char* out, size_t maxLen)
+{
+  if (maxLen == 0)
+  {
+    if (out)
+      out[0] = '\0';
+    return false;
+  }
+  skipSpaces(p);
+  size_t i = 0;
+  while (*p && *p != ' ' && i < maxLen - 1)
+    out[i++] = *p++;
+  out[i] = '\0';
+  return i > 0;
+}
+
+bool VoltronicParser::readUInt(const char*& p, uint32_t& out, uint8_t digits)
+{
+  out = 0;
+  for (uint8_t i = 0; i < digits; i++)
+  {
+    if (*p < '0' || *p > '9')
+      return false;
+    out = out * 10 + (uint32_t)(*p - '0');
+    p++;
+  }
+  return true;
+}
+
+bool VoltronicParser::readBits(const char*& p, uint8_t n, uint32_t& out)
+{
+  out = 0;
+  for (uint8_t i = 0; i < n; i++)
+  {
+    if (*p == '1')
+      out |= (1UL << i);
+    else if (*p != '0')
+      return false;
+    p++;
+  }
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  QPIGS
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicParser::parseQPIGS(const char* payload, QPIGSData& out)
+{
+  const char* p = payload;
+  if (*p != '(')
+    return false;
+  p++;
+
+  char tok[16];
+  auto next = [&]() -> bool
+  {
+    return readToken(p, tok, sizeof(tok));
+  };
+  auto toU32 = [&](uint32_t& v)
+  {
+    v = (uint32_t)strtoul(tok, nullptr, 10);
+  };
+  uint32_t u;
+
+  if (!next())
+    return false;
+  out.gridVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.gridFrequency_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.acOutputVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.acOutputFrequency_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  toU32(u);
+  out.acOutputApparentPower = (uint16_t)u;
+  if (!next())
+    return false;
+  toU32(u);
+  out.acOutputActivePower = (uint16_t)u;
+  if (!next())
+    return false;
+  toU32(u);
+  out.loadPercent = (uint8_t)u;
+  if (!next())
+    return false;
+  toU32(u);
+  out.busVoltage = (uint16_t)u;
+  if (!next())
+    return false;
+  out.batteryVoltage_x100 = strToU16x100(tok);
+  if (!next())
+    return false;
+  toU32(u);
+  out.batteryChargingCurrent = (uint16_t)u;
+  if (!next())
+    return false;
+  toU32(u);
+  out.batteryCapacity = (uint8_t)u;
+  if (!next())
+    return false;
+  toU32(u);
+  out.inverterTemperature = (uint16_t)u;
+  if (!next())
+    return false;
+  out.pv1InputCurrent_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.pv1InputVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.sccBatteryVoltage_x100 = strToU16x100(tok);
+  if (!next())
+    return false;
+  toU32(u);
+  out.batteryDischargeCurrent = (uint16_t)u;
+
+  if (!next())
+    return false;
+  {
+    uint8_t bits = 0;
+    for (uint8_t i = 0; i < 8 && tok[i]; i++)
+      if (tok[i] == '1')
+        bits |= (1 << i);
+    out.deviceStatus = bits;
+  }
+
+  if (!next())
+    return false;
+  toU32(u);
+  out.batteryVoltageOffsetForFans = (uint16_t)u;
+  if (!next())
+    return false;
+  toU32(u);
+  out.eepromVersion = (uint8_t)u;
+  if (!next())
+    return false;
+  toU32(u);
+  out.pv1ChargingPower = (uint16_t)u;
+
+  if (!next())
+  {
+    out.deviceStatus2 = 0;
+  }
+  else
+  {
+    uint8_t bits = 0;
+    for (uint8_t i = 0; i < 3 && tok[i]; i++)
+      if (tok[i] == '1')
+        bits |= (1 << i);
+    out.deviceStatus2 = bits;
+  }
+
+  if (!next())
+    return true;
+  toU32(u);
+  out.solarFeedToGridStatus = (uint8_t)u;
+  if (!next())
+    return true;
+  toU32(u);
+  out.countryRegulation = (uint8_t)u;
+  if (!next())
+    return true;
+  toU32(u);
+  out.solarFeedToGridPower = (uint16_t)u;
+
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  QPIGS2
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicParser::parseQPIGS2(const char* payload, QPIGS2Data& out)
+{
+  const char* p = payload;
+  if (*p != '(')
+    return false;
+  p++;
+
+  char tok[16];
+  auto next = [&]() -> bool
+  {
+    return readToken(p, tok, sizeof(tok));
+  };
+
+  if (!next())
+    return false;
+  out.pv2InputCurrent_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.pv2InputVoltage_x10 = strToU16x10(tok);
+
+  if (!next())
+  {
+    out.pv2ChargingPower =
+        (uint16_t)((out.pv2InputVoltage_x10 / 10.0f) * (out.pv2InputCurrent_x10 / 10.0f));
+    return true;
+  }
+  out.pv2ChargingPower = (uint16_t)strtoul(tok, nullptr, 10);
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  QPIRI
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicParser::parseQPIRI(const char* payload, QPIRIData& out)
+{
+  const char* p = payload;
+  if (*p != '(')
+    return false;
+  p++;
+
+  char tok[16];
+  auto next = [&]() -> bool
+  {
+    return readToken(p, tok, sizeof(tok));
+  };
+  auto toU32 = [&](uint32_t& v)
+  {
+    v = (uint32_t)strtoul(tok, nullptr, 10);
+  };
+  uint32_t u;
+
+  if (!next())
+    return false;
+  out.gridRatingVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.gridRatingCurrent_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.acOutputRatingVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.acOutputRatingFrequency_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.acOutputRatingCurrent_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  toU32(u);
+  out.acOutputRatingApparentPower = (uint16_t)u;
+  if (!next())
+    return false;
+  toU32(u);
+  out.acOutputRatingActivePower = (uint16_t)u;
+  if (!next())
+    return false;
+  out.batteryRatingVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.batteryRechargeVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.batteryUnderVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.batteryBulkVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.batteryFloatVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  toU32(u);
+  out.batteryType = (uint8_t)u;
+  if (!next())
+    return false;
+  toU32(u);
+  out.maxACChargingCurrent = (uint8_t)u;
+  if (!next())
+    return false;
+  toU32(u);
+  out.maxChargingCurrent = (uint8_t)u;
+  if (!next())
+    return false;
+  toU32(u);
+  out.inputVoltageRange = (uint8_t)u;
+  if (!next())
+    return false;
+  toU32(u);
+  out.outputSourcePriority = (uint8_t)u;
+  if (!next())
+    return false;
+  toU32(u);
+  out.chargerSourcePriority = (uint8_t)u;
+
+  if (!next())
+    return true;
+  toU32(u);
+  out.parallelMaxNum = (uint8_t)u;
+  if (!next())
+    return true;
+  toU32(u);
+  out.machineType = (uint8_t)u;
+  if (!next())
+    return true;
+  toU32(u);
+  out.outputMode = (uint8_t)u;
+  if (!next())
+    return true;
+  out.batteryRedischargeVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return true;
+  toU32(u);
+  out.pvOKConditionForParallel = (uint8_t)u;
+  if (!next())
+    return true;
+  toU32(u);
+  out.pvPowerBalance = (uint8_t)u;
+
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  QMOD
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicParser::parseQMOD(const char* payload, char& modeOut)
+{
+  const char* p = payload;
+  if (*p != '(')
+    return false;
+  p++;
+  if (!*p)
+    return false;
+  modeOut = *p;
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  QPIWS — 36 bits (32 سابقاً)
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicParser::parseQPIWS(const char* payload, uint64_t& warningsOut)
+{
+  const char* p = payload;
+  if (*p != '(')
+    return false;
+  p++;
+
+  uint64_t flags = 0;
+  for (uint8_t i = 0; i < 36 && p[i]; i++)
+  {
+    if (p[i] == '1')
+      flags |= (1ULL << i);
+    else if (p[i] != '0')
+      break;
+  }
+  warningsOut = flags;
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  QFLAG — يعبّي raw + flags
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicParser::parseQFLAG(const char* payload, QFLAGData& out)
+{
+  const char* p = payload;
+  if (*p != '(')
+    return false;
+  p++;
+
+  // ✅ نسخ النص الأصلي للـ debug
+  strncpy(out.raw, p, QFLAGData::RAW_MAX - 1);
+  out.raw[QFLAGData::RAW_MAX - 1] = '\0';
+
+  out.flags = 0;
+
+  auto hasFlag = [&](char c) -> bool
+  {
+    bool enabled = false;
+    for (const char* q = p; *q; q++)
+    {
+      if (*q == c && q > p)
+      {
+        char prev = *(q - 1);
+        if (prev == 'E')
+          enabled = true;
+        else if (prev == 'D')
+          enabled = false;
+      }
+    }
+    return enabled;
+  };
+
+  if (hasFlag('a'))
+    out.flags |= (1u << 0);
+  if (hasFlag('b'))
+    out.flags |= (1u << 1);
+  if (hasFlag('d'))
+    out.flags |= (1u << 2);
+  if (hasFlag('j'))
+    out.flags |= (1u << 3);
+  if (hasFlag('k'))
+    out.flags |= (1u << 4);
+  if (hasFlag('u'))
+    out.flags |= (1u << 5);
+  if (hasFlag('v'))
+    out.flags |= (1u << 6);
+  if (hasFlag('x'))
+    out.flags |= (1u << 7);
+  if (hasFlag('y'))
+    out.flags |= (1u << 8);  // ✅ bit 8
+  if (hasFlag('z'))
+    out.flags |= (1u << 9);
+
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  QPGSn
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicParser::parseQPGSn(const char* payload, ParallelInfo& out)
+{
+  const char* p = payload;
+  if (*p != '(')
+    return false;
+  p++;
+
+  char tok[24];
+  auto next = [&]() -> bool
+  {
+    return readToken(p, tok, sizeof(tok));
+  };
+
+  if (!next())
+    return false;
+  out.parallelNumber = (uint8_t)strtoul(tok, nullptr, 10);
+  if (!next())
+    return false;
+  out.exists = (tok[0] == '1');
+  if (!next())
+    return false;
+  strncpy(out.serialNumber, tok, sizeof(out.serialNumber) - 1);
+  out.serialNumber[sizeof(out.serialNumber) - 1] = '\0';
+  if (!next())
+    return false;
+  out.workMode = tok[0];
+  if (!next())
+    return false;
+  out.faultCode = (uint8_t)strtoul(tok, nullptr, 10);
+  if (!next())
+    return false;
+  out.gridVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.gridFrequency_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.acOutputVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.acOutputFrequency_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.acOutputApparentPower = strToU16(tok);
+  if (!next())
+    return false;
+  out.acOutputActivePower = strToU16(tok);
+  if (!next())
+    return false;
+  out.loadPercent = strToU8(tok);
+  if (!next())
+    return false;
+  out.batteryVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.batteryChargingCurrent = strToU16(tok);
+  if (!next())
+    return false;
+  out.batteryCapacity = strToU8(tok);
+  if (!next())
+    return false;
+  out.pvInputVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.pvInputCurrent_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.totalChargingCurrent = strToU16(tok);
+  if (!next())
+    return false;
+  out.totalACOutputApparentPower = strToU16(tok);
+  if (!next())
+    return false;
+  out.totalOutputActivePower = strToU16(tok);
+  if (!next())
+    return false;
+  out.totalACOutputPercentage = strToU8(tok);
+
+  if (!next())
+    return true;
+  {
+    uint8_t bits = 0;
+    for (uint8_t i = 0; i < 8 && tok[i]; i++)
+      if (tok[i] == '1')
+        bits |= (1 << i);
+    out.inverterStatus = bits;
+  }
+
+  if (!next())
+    return true;
+  out.outputMode = strToU8(tok);
+  if (!next())
+    return true;
+  out.chargerSourcePriority = strToU8(tok);
+  if (!next())
+    return true;
+  out.maxChargerCurrent = strToU8(tok);
+  if (!next())
+    return true;
+  out.maxChargerRange = strToU8(tok);
+  if (!next())
+    return true;
+  out.maxACChargerCurrent = strToU8(tok);
+  if (!next())
+    return true;
+  out.pvInputCurrent2_x10 = strToU16x10(tok);
+
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  QBEQI
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicParser::parseQBEQI(const char* payload, BatteryEqualizationInfo& out)
+{
+  const char* p = payload;
+  if (*p != '(')
+    return false;
+  p++;
+
+  char tok[16];
+  auto next = [&]() -> bool
+  {
+    return readToken(p, tok, sizeof(tok));
+  };
+
+  if (!next())
+    return false;
+  out.enabled = (tok[0] == '1');
+  if (!next())
+    return false;
+  out.timeMinutes = strToU16(tok);
+  if (!next())
+    return false;
+  out.periodDays = strToU16(tok);
+  if (!next())
+    return false;
+  out.voltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.overTimeMinutes = strToU16(tok);
+  if (!next())
+    return false;
+  out.maxTimeMinutes = strToU16(tok);
+  if (!next())
+    return true;
+  out.activeNow = strToU8(tok);
+
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  QLED
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicParser::parseQLED(const char* payload, LedInfo& out)
+{
+  const char* p = payload;
+  if (*p != '(')
+    return false;
+  p++;
+
+  char tok[16];
+  auto next = [&]() -> bool
+  {
+    return readToken(p, tok, sizeof(tok));
+  };
+
+  if (!next())
+    return false;
+  out.enabled = (tok[0] == '1');
+  if (!next())
+    return false;
+  out.speed = strToU8(tok);
+  if (!next())
+    return false;
+  out.effect = strToU8(tok);
+  if (!next())
+    return false;
+  out.brightness = strToU8(tok);
+  if (!next())
+    return false;
+  out.colorCount = strToU8(tok);
+
+  for (uint8_t i = 0; i < out.colorCount && i < LedInfo::MAX_COLORS; i++)
+  {
+    if (!next())
+      break;
+    out.red[i] = (uint8_t)strtoul(tok, nullptr, 10);
+    if (!next())
+      break;
+    out.green[i] = (uint8_t)strtoul(tok, nullptr, 10);
+    if (!next())
+      break;
+    out.blue[i] = (uint8_t)strtoul(tok, nullptr, 10);
+  }
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  QDI
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicParser::parseQDI(const char* payload, DefaultsInfo& out)
+{
+  const char* p = payload;
+  if (*p != '(')
+    return false;
+  p++;
+
+  char tok[16];
+  auto next = [&]() -> bool
+  {
+    return readToken(p, tok, sizeof(tok));
+  };
+
+  if (!next())
+    return false;
+  out.acOutputVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.acOutputFrequency_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.maxACChargingCurrent = strToU8(tok);
+  if (!next())
+    return false;
+  out.batteryUnderVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.batteryFloatVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.batteryBulkVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.batteryRechargeVoltage_x10 = strToU16x10(tok);
+  if (!next())
+    return false;
+  out.maxChargingCurrent = strToU8(tok);
+  if (!next())
+    return false;
+  out.acInputVoltageRange = strToU8(tok);
+  if (!next())
+    return false;
+  out.outputSourcePriority = strToU8(tok);
+  if (!next())
+    return false;
+  out.chargerSourcePriority = strToU8(tok);
+  if (!next())
+    return true;
+  out.batteryType = strToU8(tok);
+
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  QBATCD
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicParser::parseQBATCDRaw(const char* payload, char& a, char& b, char& c)
+{
+  const char* p = payload;
+  if (*p != '(')
+    return false;
+  p++;
+  if (strlen(p) < 3)
+    return false;
+  a = p[0];
+  b = p[1];
+  c = p[2];
+  return true;
+}
+
+bool VoltronicParser::parseQBATCD(const char* payload, BatteryControlStatus& out)
+{
+  char a, b, c;
+  if (!parseQBATCDRaw(payload, a, b, c))
+    return false;
+  out.dischargeCompletely = (a == '1');
+  out.dischargeAllowed = (b == '1');
+  out.chargeCompletely = (c == '1');
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  QMCHGCR / QMUCHGCR
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicParser::parseQMCHGCR(const char* payload, SelectableValues& out)
+{
+  const char* p = payload;
+  if (*p != '(')
+    return false;
+  p++;
+
+  out.count = 0;
+  char tok[8];
+  while (readToken(p, tok, sizeof(tok)) && out.count < SelectableValues::MAX_VALUES)
+    out.values[out.count++] = (uint8_t)strtoul(tok, nullptr, 10);
+
+  return out.count > 0;
+}
+
+bool VoltronicParser::parseQMUCHGCR(const char* payload, SelectableValues& out)
+{
+  return parseQMCHGCR(payload, out);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  QOPPT / QCHPT
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicParser::parseQOPPT(const char* payload, TimeOrderInfo& out)
+{
+  const char* p = payload;
+  if (*p != '(')
+    return false;
+  p++;
+
+  char tok[8];
+  for (uint8_t i = 0; i < TimeOrderInfo::HOURS; i++)
+  {
+    if (!readToken(p, tok, sizeof(tok)))
+      return false;
+    out.hours[i] = (uint8_t)strtoul(tok, nullptr, 10);
+  }
+  if (!readToken(p, tok, sizeof(tok)))
+    return false;
+  out.defaultVal = (uint8_t)strtoul(tok, nullptr, 10);
+  if (!readToken(p, tok, sizeof(tok)))
+    return false;
+  out.order = (uint8_t)strtoul(tok, nullptr, 10);
+  return true;
+}
+
+bool VoltronicParser::parseQCHPT(const char* payload, TimeOrderInfo& out)
+{
+  return parseQOPPT(payload, out);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  QBOOT
+// ═══════════════════════════════════════════════════════════════
+bool VoltronicParser::parseQBOOT(const char* payload, bool& hasBootstrap)
+{
+  const char* p = payload;
+  if (*p != '(')
+    return false;
+  p++;
+  hasBootstrap = (*p == '1');
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  modeToString
+// ═══════════════════════════════════════════════════════════════
+const char* VoltronicParser::modeToString(char m)
+{
+  switch (m)
+  {
+    case 'P':
+      return "PowerOn";
+    case 'S':
+      return "Standby";
+    case 'L':
+      return "Line";
+    case 'B':
+      return "Battery";
+    case 'F':
+      return "Fault";
+    case 'H':
+      return "PowerSaving";
+    case 'D':
+      return "Shutdown";
+    default:
+      return "Unknown";
+  }
+}
+```
+
+## src/VoltronicParser.h
+
+```h
+#pragma once
+#include <Arduino.h>
+#include "VoltronicTypes.h"
+
+class VoltronicParser
+{
+ public:
+  // ═══════════════════════════════════════════════════════════
+  //  Helpers
+  // ═══════════════════════════════════════════════════════════
+  static void skipSpaces(const char*& p);
+  static bool readToken(const char*& p, char* out, size_t maxLen);
+  static bool readUInt(const char*& p, uint32_t& out, uint8_t digits);
+  static bool readBits(const char*& p, uint8_t n, uint32_t& out);
+
+  // ═══════════════════════════════════════════════════════════
+  //  Numeric parsers
+  // ═══════════════════════════════════════════════════════════
+  static uint16_t strToU16x10(const char* s);   // "230.1" → 2301
+  static uint16_t strToU16x100(const char* s);  // "52.00" → 5200
+  static uint16_t strToU16(const char* s);      // "1234"  → 1234
+  static uint8_t strToU8(const char* s);        // "12"    → 12
+
+  // ═══════════════════════════════════════════════════════════
+  //  Inquiry parsers
+  // ═══════════════════════════════════════════════════════════
+  static bool parseQPIGS(const char* payload, QPIGSData& out);
+  static bool parseQPIGS2(const char* payload, QPIGS2Data& out);
+  static bool parseQPIRI(const char* payload, QPIRIData& out);
+  static bool parseQMOD(const char* payload, char& modeOut);
+  static bool parseQPIWS(const char* payload,
+                         uint64_t& warningsOut);                // ✅ uint64
+  static bool parseQFLAG(const char* payload, QFLAGData& out);  // ✅ + raw
+  static bool parseQPGSn(const char* payload, ParallelInfo& out);
+  static bool parseQBEQI(const char* payload, BatteryEqualizationInfo& out);
+  static bool parseQLED(const char* payload, LedInfo& out);
+  static bool parseQDI(const char* payload, DefaultsInfo& out);
+  static bool parseQBATCD(const char* payload, BatteryControlStatus& out);
+  static bool parseQBATCDRaw(const char* payload, char& a, char& b, char& c);
+  static bool parseQMCHGCR(const char* payload, SelectableValues& out);
+  static bool parseQMUCHGCR(const char* payload, SelectableValues& out);
+  static bool parseQOPPT(const char* payload, TimeOrderInfo& out);
+  static bool parseQCHPT(const char* payload, TimeOrderInfo& out);
+  static bool parseQBOOT(const char* payload, bool& hasBootstrap);
+
+  // ═══════════════════════════════════════════════════════════
+  //  Mode helper
+  // ═══════════════════════════════════════════════════════════
+  static const char* modeToString(char m);
+};
+```
+
+## src/VoltronicPowerMode.cpp
+
+```cpp
+#include "VoltronicPowerMode.h"
+#include "VoltronicLang.h"
+#include "VoltronicMAX.h"
+VoltronicPowerMode::VoltronicPowerMode()
+{
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  التحديث — كل العتبات من إعدادات المستخدم
+// ═══════════════════════════════════════════════════════════════
+void VoltronicPowerMode::update(VoltronicMAX& inv, const VoltronicBattery& bat)
+{
+  const QPIGSData& g = inv.qpigs();
+  const QPIGS2Data& g2 = inv.qpigs2();
+
+  float soc = bat.soc();
+
+  // ✅ عتبة الشبكة من الإعدادات
+  bool gridOk = g.gridVoltage() > _gridMinVoltage;
+
+  bool discharging = g.batteryDischargeCurrent > 2;
+
+  // ✅ فحص PV1 + PV2
+  bool hasSolar = (g.pv1ChargingPower > 50) || (g2.pv2ChargingPower > 50);
+
+  bool isFloat = g.sb2ChargingToFloat();
+  bool readyFull = (soc >= _socSurplus) || isFloat;
+
+  // ─── تتبع التفريغ المستمر ───
+  if (g.batteryDischargeCurrent > 8)
+  {
+    if (_dischargeStart == 0)
+      _dischargeStart = millis();
+  }
+  else
+  {
+    _dischargeStart = 0;
+  }
+  bool sustained = (_dischargeStart > 0) && (millis() - _dischargeStart > 60000);
+
+  // ═══════════════════════════════════════════════════════════
+  //  Emergency — حسب إعدادات المستخدم
+  // ═══════════════════════════════════════════════════════════
+  if (!gridOk)
+  {
+    // أدخل EMERGENCY لو:
+    //   SOC < _socEmergency  → دائماً
+    //   _locked AND SOC < _socRecover → نبقى مقفولين
+    if (soc < _socEmergency || (_locked && soc < _socRecover))
+    {
+      _mode = PM_EMERGENCY_MAX;
+      _locked = true;
+    }
+    // POWER_SAVING لو:
+    //   SOC < _socPowerSaving
+    else if (soc < _socPowerSaving)
+    {
+      _mode = PM_POWER_SAVING;
+      _locked = false;
+    }
+    // NORMAL لو:
+    //   SOC > _socPowerSaving
+    else
+    {
+      _mode = PM_NORMAL;
+      _locked = false;
+    }
+    return;
+  }
+  _locked = false;
+
+  // ═══════════════════════════════════════════════════════════
+  //  Surplus / Normal
+  // ═══════════════════════════════════════════════════════════
+  bool full = readyFull && !discharging;
+
+  // منع القفز
+  if (_mode == PM_SOLAR_SURPLUS || _mode == PM_GRID_SURPLUS || _mode == PM_COMBINED_SURPLUS)
+  {
+    if (soc >= (_socSurplus - 3.0f) && !sustained)
+      full = true;
+  }
+
+  if (full && gridOk && hasSolar)
+    _mode = PM_COMBINED_SURPLUS;
+  else if (full && hasSolar)
+    _mode = PM_SOLAR_SURPLUS;
+  else if (full && gridOk)
+    _mode = PM_GRID_SURPLUS;
+  else
+    _mode = PM_NORMAL;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Names
+// ═══════════════════════════════════════════════════════════════
+const char* VoltronicPowerMode::modeNameAr() const
+{
+  switch (_mode)
+  {
+    case PM_NORMAL:
+      return "عادي";
+    case PM_POWER_SAVING:
+      return "توفير الطاقة";
+    case PM_EMERGENCY_MAX:
+      return "طوارئ";
+    case PM_SOLAR_SURPLUS:
+      return "فائض شمسي";
+    case PM_GRID_SURPLUS:
+      return "فائض شبكة";
+    case PM_COMBINED_SURPLUS:
+      return "فائض مشترك";
+    default:
+      return "غير معروف";
+  }
+}
+
+const char* VoltronicPowerMode::modeNameEn() const
+{
+  switch (_mode)
+  {
+    case PM_NORMAL:
+      return "Normal";
+    case PM_POWER_SAVING:
+      return "Power Saving";
+    case PM_EMERGENCY_MAX:
+      return "Emergency";
+    case PM_SOLAR_SURPLUS:
+      return "Solar Surplus";
+    case PM_GRID_SURPLUS:
+      return "Grid Surplus";
+    case PM_COMBINED_SURPLUS:
+      return "Combined Surplus";
+    default:
+      return "Unknown";
+  }
+}
+```
+
+## src/VoltronicPowerMode.h
+
+```h
+#pragma once
+#include <Arduino.h>
+#include "VoltronicBattery.h"
+
+class VoltronicMAX;
+
+class VoltronicPowerMode
+{
+ public:
+  enum Mode : uint8_t
+  {
+    PM_UNKNOWN = 0,
+    PM_NORMAL = 1,
+    PM_POWER_SAVING = 2,
+    PM_EMERGENCY_MAX = 3,
+    PM_SOLAR_SURPLUS = 4,
+    PM_GRID_SURPLUS = 5,
+    PM_COMBINED_SURPLUS = 6,
+  };
+
+  VoltronicPowerMode();
+
+  // ═══════════════════════════════════════════════════════════
+  //  إعدادات المستخدم (نِسَب SOC)
+  // ═══════════════════════════════════════════════════════════
+  void setSocEmergency(float pct)
+  {
+    _socEmergency = _clamp(pct, 5, 40);
+  }
+  void setSocPowerSaving(float pct)
+  {
+    _socPowerSaving = _clamp(pct, 10, 50);
+  }
+  void setSocRecover(float pct)
+  {
+    _socRecover = _clamp(pct, 20, 60);
+  }
+  void setSocSurplus(float pct)
+  {
+    _socSurplus = _clamp(pct, 70, 99);
+  }
+  void setGridMinVoltage(float v)
+  {
+    _gridMinVoltage = _clamp(v, 100, 220);
+  }
+
+  float socEmergency() const
+  {
+    return _socEmergency;
+  }
+  float socPowerSaving() const
+  {
+    return _socPowerSaving;
+  }
+  float socRecover() const
+  {
+    return _socRecover;
+  }
+  float socSurplus() const
+  {
+    return _socSurplus;
+  }
+  float gridMinVoltage() const
+  {
+    return _gridMinVoltage;
+  }
+
+  // ─── التحديث ───
+  void update(VoltronicMAX& inv, const VoltronicBattery& bat);
+
+  // ─── الحالة ───
+  Mode mode() const
+  {
+    return _mode;
+  }
+  bool emergencyLocked() const
+  {
+    return _locked;
+  }
+  void setEmergencyLocked(bool b)
+  {
+    _locked = b;
+  }
+  void resetLock()
+  {
+    _locked = false;
+    _dischargeStart = 0;
+  }
+
+  const char* modeNameEn() const;
+  const char* modeNameAr() const;
+
+ private:
+  Mode _mode = PM_NORMAL;
+  bool _locked = false;
+  unsigned long _dischargeStart = 0;
+
+  // ─── عتبات SOC (%) ───
+  float _socEmergency = 10.0f;    // أقل من هذا → طوارئ
+  float _socPowerSaving = 25.0f;  // أقل من هذا → توفير طاقة
+  float _socRecover = 30.0f;      // أعلى من هذا → عودة للعادي
+  float _socSurplus = 88.0f;      // أعلى من هذا → فائض
+
+  // ─── عتبة جهد الشبكة ───
+  float _gridMinVoltage = 150.0f;
+
+  static float _clamp(float v, float lo, float hi)
+  {
+    if (v < lo)
+      return lo;
+    if (v > hi)
+      return hi;
+    return v;
+  }
+};
+```
+
+## src/VoltronicPrint.h
+
+```h
+#pragma once
+#include <Arduino.h>
+#include "VoltronicTypes.h"
+
+// ═══════════════════════════════════════════════════════════════
+//  Print helpers — تعمل على كل المنصات
+//  بديل لـ Serial.printf() على AVR
+// ═══════════════════════════════════════════════════════════════
+namespace VoltronicPrint
+{
+
+inline void pad2(Stream& s, uint8_t v)
+{
+  if (v < 10)
+    s.print('0');
+  s.print(v);
+}
+
+inline void printFixed(Stream& s, float v, uint8_t decimals)
+{
+  s.print(v, decimals);
+}
+
+inline void printStatus(Stream& s, const QPIGSData& d)
+{
+  s.print(F("Grid: "));
+  s.print(d.gridVoltage(), 1);
+  s.print(F("V "));
+  s.print(d.gridFrequency(), 1);
+  s.println(F("Hz"));
+
+  s.print(F("Out:  "));
+  s.print(d.acOutputVoltage(), 1);
+  s.print(F("V "));
+  s.print(d.acOutputFrequency(), 1);
+  s.print(F("Hz | Load "));
+  s.print(d.loadPercent);
+  s.println(F("%"));
+
+  s.print(F("Batt: "));
+  s.print(d.batteryVoltage(), 2);
+  s.print(F("V "));
+  s.print(d.batteryChargingCurrent);
+  s.print(F("A "));
+  s.print(d.batteryCapacity);
+  s.print(F("% | Temp "));
+  s.print(d.inverterTemperature);
+  s.println(F("C"));
+
+  s.print(F("PV1:  "));
+  s.print(d.pv1InputVoltage(), 1);
+  s.print(F("V "));
+  s.print(d.pv1InputCurrent(), 1);
+  s.print(F("A "));
+  s.print(d.pv1ChargingPower);
+  s.println(F("W"));
+}
+
+}  // namespace VoltronicPrint
+```
+
+## src/VoltronicSmartCharger.cpp
+
+```cpp
+#include "VoltronicSmartCharger.h"
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
+#include "VoltronicMAX.h"
+// ═══════════════════════════════════════════════════════════════
+VoltronicSmartCharger::VoltronicSmartCharger()
+  : _mode(MODE_STD)
+  , _targetAC(40)
+  , _targetTotal(80)
+  , _floatAC(2)
+  , _floatTotal(10)
+  , _tempProtectC(70)
+  , _currentAC(0)
+  , _currentTotal(0)
+  , _changes(0)
+  , _floatEntries(0)
+  , _tempProtects(0)
+  , _lastChange(0)
+  , _inTempProtect(false)
+  , _lastWasFloat(false)
+  , _optionsLoaded(false)
+{
+  _stage[0] = 'I';
+  _stage[1] = 'd';
+  _stage[2] = 'l';
+  _stage[3] = 'e';
+  _stage[4] = '\0';
+  const char* init = "Starting...";
+  strncpy(_status, init, sizeof(_status) - 1);
+  _status[sizeof(_status) - 1] = '\0';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  تحميل الخيارات من الإنفرتر (مرة واحدة + تحديث دوري)
+// ═══════════════════════════════════════════════════════════════
+void VoltronicSmartCharger::_loadOptionsIfNeeded(VoltronicMAX& inv)
+{
+  // كل 1 ساعة نعيد تحميل الخيارات (نادراً ما تتغير)
+  static uint32_t lastLoad = 0;
+  if (_optionsLoaded && (millis() - lastLoad < 3600000UL))
+    return;
+
+  lastLoad = millis();
+
+  // جلب QMCHGCR (التيارات الإجمالية)
+  if (inv.queryMaxChargingCurrents())
+  {
+    _totalOptions = inv.maxChgOptions();
+  }
+  // جلب QMUCHGCR (تيارات AC)
+  if (inv.queryMaxUtilityChargingCurrents())
+  {
+    _acOptions = inv.maxUtilChgOptions();
+  }
+
+  _optionsLoaded = (_totalOptions.count > 0) && (_acOptions.count > 0);
+
+  // إذا لم ينجح الجلب → fallback آمن
+  if (!_optionsLoaded)
+  {
+    _acOptions.count = 9;
+    const uint8_t fallbackAC[9] = {2, 10, 20, 30, 40, 50, 60, 70, 80};
+    memcpy(_acOptions.values, fallbackAC, 9);
+
+    _totalOptions.count = 8;
+    const uint8_t fallbackTotal[8] = {10, 20, 30, 40, 50, 60, 70, 80};
+    memcpy(_totalOptions.values, fallbackTotal, 8);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  اختيار أقرب قيمة متاحة (تعميم بدل hardcoded arrays)
+// ═══════════════════════════════════════════════════════════════
+uint8_t VoltronicSmartCharger::_pickClosest(bool ac, uint8_t desired) const
+{
+  const SelectableValues& s = ac ? _acOptions : _totalOptions;
+  if (s.count == 0)
+    return desired;
+
+  uint8_t best = s.values[0];
+  uint8_t bestDiff = 255;
+  for (uint8_t i = 0; i < s.count; i++)
+  {
+    uint8_t diff = (s.values[i] > desired) ? (s.values[i] - desired) : (desired - s.values[i]);
+    if (diff < bestDiff)
+    {
+      bestDiff = diff;
+      best = s.values[i];
+    }
+  }
+  return best;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  _stepDown — يختار أكبر قيمة <= cur و >= target
+// ═══════════════════════════════════════════════════════════════
+uint8_t VoltronicSmartCharger::_stepDown(uint8_t cur, uint8_t target, bool ac) const
+{
+  const SelectableValues& s = ac ? _acOptions : _totalOptions;
+  uint8_t best = cur;
+  for (uint8_t i = 0; i < s.count; i++)
+  {
+    uint8_t v = s.values[i];
+    if (v < cur && v >= target && v > best)
+      best = v;
+    else if (best == cur && v < cur && v >= target)
+      best = v;
+  }
+  // نجد أقرب قيمة أقل من cur
+  uint8_t result = cur;
+  for (uint8_t i = 0; i < s.count; i++)
+  {
+    uint8_t v = s.values[i];
+    if (v < cur && v >= target)
+    {
+      if (result == cur || v > result)
+        result = v;
+    }
+  }
+  return result;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  _stepUp — يختار أصغر قيمة > cur و <= target
+// ═══════════════════════════════════════════════════════════════
+uint8_t VoltronicSmartCharger::_stepUp(uint8_t cur, uint8_t target, bool ac) const
+{
+  const SelectableValues& s = ac ? _acOptions : _totalOptions;
+  uint8_t result = cur;
+  for (uint8_t i = 0; i < s.count; i++)
+  {
+    uint8_t v = s.values[i];
+    if (v > cur && v <= target)
+    {
+      if (result == cur || v < result)
+        result = v;
+    }
+  }
+  return result;
+}
+
+// ═══════════════════════════════════════════════════════════════
+void VoltronicSmartCharger::_applyAC(VoltronicMAX& inv, uint8_t amps)
+{
+  if (amps == _currentAC)
+    return;
+  if (inv.setMaxUtilityChargingCurrent(amps))
+  {
+    _currentAC = amps;
+    _lastChange = millis();
+    _changes++;
+  }
+}
+
+void VoltronicSmartCharger::_applyTotal(VoltronicMAX& inv, uint8_t amps)
+{
+  if (amps == _currentTotal)
+    return;
+  if (inv.setMaxChargingCurrent(amps))
+  {
+    _currentTotal = amps;
+    _lastChange = millis();
+    _changes++;
+  }
+}
+
+void VoltronicSmartCharger::_setStatus(const char* fmt, ...)
+{
+  va_list ap;
+  va_start(ap, fmt);
+  vsnprintf(_status, sizeof(_status), fmt, ap);
+  va_end(ap);
+}
+
+void VoltronicSmartCharger::_setStage(const char* s)
+{
+  strncpy(_stage, s, sizeof(_stage) - 1);
+  _stage[sizeof(_stage) - 1] = '\0';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  التحديث الرئيسي
+// ═══════════════════════════════════════════════════════════════
+void VoltronicSmartCharger::update(VoltronicMAX& inv, const VoltronicBattery& bat)
+{
+  _loadOptionsIfNeeded(inv);
+
+  const QPIGSData& g = inv.qpigs();
+  _currentAC = inv.qpiri().maxACChargingCurrent;
+  _currentTotal = inv.qpiri().maxChargingCurrent;
+  _currentAC = _pickClosest(true, _currentAC);
+  _currentTotal = _pickClosest(false, _currentTotal);
+
+  float soc = bat.soc();
+  float temp = g.inverterTemperature;
+  bool isFloat = g.sb2ChargingToFloat();
+  bool gridOk = g.gridVoltage() > 100.0f;
+
+  // Edge detection
+  if (isFloat && !_lastWasFloat)
+  {
+    _floatEntries++;
+    _lastWasFloat = true;
+  }
+  else if (!isFloat)
+  {
+    _lastWasFloat = false;
+  }
+
+  // Stage
+  if (_mode == MODE_OFF)
+    _setStage(inv.lang.tr(VoltronicLang::SC_STAGE_OFF));
+  else if (temp >= _tempProtectC)
+    _setStage(inv.lang.tr(VoltronicLang::SC_STAGE_TEMP));
+  else if (isFloat)
+    _setStage(inv.lang.tr(VoltronicLang::SC_STAGE_FLOAT));
+  else if (soc >= 90.0f)
+    _setStage(inv.lang.tr(VoltronicLang::SC_STAGE_NEAR));
+  else
+    _setStage(inv.lang.tr(VoltronicLang::SC_STAGE_CHARGE));
+
+  // Disabled
+  if (_mode == MODE_OFF)
+  {
+    _setStatus(inv.lang.tr(VoltronicLang::SC_STATUS_OFF));
+    return;
+  }
+
+  // Temp Protect
+  bool wasProtect = _inTempProtect;
+  _inTempProtect = (temp >= _tempProtectC);
+  if (_inTempProtect && !wasProtect)
+    _tempProtects++;
+
+  if (_inTempProtect)
+  {
+    uint8_t lowAC = (_acOptions.count > 0) ? _acOptions.values[0] : 10;
+    if (_currentAC > lowAC)
+    {
+      uint8_t newAC = _stepDown(_currentAC, lowAC, true);
+      if (newAC != _currentAC)
+      {
+        _applyAC(inv, newAC);
+        snprintf(_status, sizeof(_status), inv.lang.tr(VoltronicLang::SC_STATUS_TEMP_AC), newAC);
+        return;
+      }
+    }
+    uint8_t lowT = (_totalOptions.count > 0) ? _totalOptions.values[0] : 20;
+    if (_currentTotal > lowT)
+    {
+      uint8_t newT = _stepDown(_currentTotal, lowT, false);
+      if (newT != _currentTotal)
+      {
+        _applyTotal(inv, newT);
+        snprintf(_status, sizeof(_status), inv.lang.tr(VoltronicLang::SC_STATUS_TEMP_TOTAL), newT);
+        return;
+      }
+    }
+    _setStatus(inv.lang.tr(VoltronicLang::SC_STATUS_TEMP_ACTIVE));
+    return;
+  }
+
+  // FAST mode
+  if (_mode == MODE_FAST)
+  {
+    uint8_t targetAC = isFloat ? _floatAC : _targetAC;
+    uint8_t targetT = isFloat ? _floatTotal : _targetTotal;
+
+    if (_currentAC > targetAC && gridOk)
+    {
+      _applyAC(inv, _stepDown(_currentAC, targetAC, true));
+      snprintf(_status, sizeof(_status), inv.lang.tr(VoltronicLang::SC_STATUS_FAST_AC), _currentAC);
+      return;
+    }
+    if (_currentAC < targetAC && gridOk)
+    {
+      _applyAC(inv, _stepUp(_currentAC, targetAC, true));
+      snprintf(_status, sizeof(_status), inv.lang.tr(VoltronicLang::SC_STATUS_FAST_AC), _currentAC);
+      return;
+    }
+    if (_currentTotal > targetT)
+    {
+      _applyTotal(inv, _stepDown(_currentTotal, targetT, false));
+      snprintf(_status,
+               sizeof(_status),
+               inv.lang.tr(VoltronicLang::SC_STATUS_FAST_TOTAL),
+               _currentTotal);
+      return;
+    }
+    if (_currentTotal < targetT)
+    {
+      _applyTotal(inv, _stepUp(_currentTotal, targetT, false));
+      snprintf(_status,
+               sizeof(_status),
+               inv.lang.tr(VoltronicLang::SC_STATUS_FAST_TOTAL),
+               _currentTotal);
+      return;
+    }
+    snprintf(_status,
+             sizeof(_status),
+             inv.lang.tr(VoltronicLang::SC_STATUS_FAST_STEADY),
+             _currentAC,
+             _currentTotal);
+    return;
+  }
+
+  // STANDARD mode
+  if (_mode == MODE_STD)
+  {
+    uint8_t targetAC = _targetAC;
+    uint8_t targetT = _targetTotal;
+
+    if (isFloat)
+    {
+      targetAC = _floatAC;
+      targetT = _floatTotal;
+    }
+    else if (soc >= 90.0f)
+    {
+      if (targetAC > 20)
+        targetAC = 20;
+      if (targetT > 20)
+        targetT = 20;
+    }
+
+    if (_currentAC > targetAC && gridOk)
+    {
+      _applyAC(inv, _stepDown(_currentAC, targetAC, true));
+      snprintf(_status,
+               sizeof(_status),
+               inv.lang.tr(VoltronicLang::SC_STATUS_STD_AC_DN),
+               _currentAC,
+               soc);
+      return;
+    }
+    if (_currentAC < targetAC && gridOk)
+    {
+      _applyAC(inv, _stepUp(_currentAC, targetAC, true));
+      snprintf(
+          _status, sizeof(_status), inv.lang.tr(VoltronicLang::SC_STATUS_STD_AC_UP), _currentAC);
+      return;
+    }
+    if (_currentTotal > targetT)
+    {
+      _applyTotal(inv, _stepDown(_currentTotal, targetT, false));
+      snprintf(_status,
+               sizeof(_status),
+               inv.lang.tr(VoltronicLang::SC_STATUS_STD_T_DN),
+               _currentTotal,
+               soc);
+      return;
+    }
+    if (_currentTotal < targetT)
+    {
+      _applyTotal(inv, _stepUp(_currentTotal, targetT, false));
+      snprintf(
+          _status, sizeof(_status), inv.lang.tr(VoltronicLang::SC_STATUS_STD_T_UP), _currentTotal);
+      return;
+    }
+    snprintf(_status,
+             sizeof(_status),
+             inv.lang.tr(VoltronicLang::SC_STATUS_STD_STEADY),
+             _currentAC,
+             _currentTotal,
+             soc);
+  }
+}
+
+const char* VoltronicSmartCharger::modeToString(Mode m) const
+{
+  switch (m)
+  {
+    case MODE_OFF:
+      return "Disabled";
+    case MODE_STD:
+      return "Standard";
+    case MODE_FAST:
+      return "Fast";
+    default:
+      return "?";
+  }
+}
+```
+
+## src/VoltronicSmartCharger.h
+
+```h
+#pragma once
+#include <Arduino.h>
+#include "VoltronicBattery.h"
+#include "VoltronicTypes.h"
+
+class VoltronicMAX;
+
+// ═══════════════════════════════════════════════════════════════
+//  VoltronicSmartCharger — شحن ذكي متعدد الأنماط
+//  ⚠️ ملاحظة: أسماء enum بادئة MODE_ لتجنب تعارض
+//     مع ESP32 hal macro DISABLED
+// ═══════════════════════════════════════════════════════════════
+class VoltronicSmartCharger
+{
+ public:
+  enum Mode : uint8_t
+  {
+    MODE_OFF = 0,   // معطّل
+    MODE_STD = 1,   // قياسي (تخفيض تدريجي)
+    MODE_FAST = 2,  // سريع (Float فقط)
+  };
+
+  VoltronicSmartCharger();
+
+  // ─── الإعدادات ───
+  void setMode(Mode m)
+  {
+    _mode = m;
+  }
+  void setTargetAC(uint8_t a)
+  {
+    _targetAC = a;
+  }
+  void setTargetTotal(uint8_t a)
+  {
+    _targetTotal = a;
+  }
+  void setFloatAC(uint8_t a)
+  {
+    _floatAC = a;
+  }
+  void setFloatTotal(uint8_t a)
+  {
+    _floatTotal = a;
+  }
+  void setTempProtectC(uint8_t c)
+  {
+    _tempProtectC = c;
+  }
+
+  // ─── التحديث ───
+  void update(VoltronicMAX& inv, const VoltronicBattery& bat);
+
+  // ─── القراءات ───
+  Mode mode() const
+  {
+    return _mode;
+  }
+  bool enabled() const
+  {
+    return _mode != MODE_OFF;
+  }
+  uint8_t targetAC() const
+  {
+    return _targetAC;
+  }
+  uint8_t targetTotal() const
+  {
+    return _targetTotal;
+  }
+  uint8_t floatAC() const
+  {
+    return _floatAC;
+  }
+  uint8_t floatTotal() const
+  {
+    return _floatTotal;
+  }
+  uint8_t tempProtectC() const
+  {
+    return _tempProtectC;
+  }
+  uint8_t currentAC() const
+  {
+    return _currentAC;
+  }
+  uint8_t currentTotal() const
+  {
+    return _currentTotal;
+  }
+  const char* stage() const
+  {
+    return _stage;
+  }
+  const char* status() const
+  {
+    return _status;
+  }
+  uint32_t changes() const
+  {
+    return _changes;
+  }
+  uint32_t floatEntries() const
+  {
+    return _floatEntries;
+  }
+  uint32_t tempProtects() const
+  {
+    return _tempProtects;
+  }
+  uint32_t lastChangeMs() const
+  {
+    return _lastChange;
+  }
+  bool tempProtection() const
+  {
+    return _inTempProtect;
+  }
+  bool configError() const
+  {
+    return _floatAC > _targetAC || _floatTotal > _targetTotal;
+  }
+  bool optionsLoaded() const
+  {
+    return _optionsLoaded;
+  }
+
+  const SelectableValues& acOptions() const
+  {
+    return _acOptions;
+  }
+  const SelectableValues& totalOptions() const
+  {
+    return _totalOptions;
+  }
+
+  const char* modeToString(Mode m) const;
+
+ private:
+  Mode _mode;
+  uint8_t _targetAC;
+  uint8_t _targetTotal;
+  uint8_t _floatAC;
+  uint8_t _floatTotal;
+  uint8_t _tempProtectC;
+
+  uint8_t _currentAC;
+  uint8_t _currentTotal;
+
+  char _stage[24];
+  char _status[96];
+
+  uint32_t _changes;
+  uint32_t _floatEntries;
+  uint32_t _tempProtects;
+  uint32_t _lastChange;
+
+  bool _inTempProtect;
+  bool _lastWasFloat;
+  bool _optionsLoaded;
+  bool _currentsInitialized;
+
+  SelectableValues _acOptions;
+  SelectableValues _totalOptions;
+
+  void _loadOptionsIfNeeded(VoltronicMAX& inv);
+  uint8_t _stepDown(uint8_t cur, uint8_t target, bool ac) const;
+  uint8_t _stepUp(uint8_t cur, uint8_t target, bool ac) const;
+  void _applyAC(VoltronicMAX& inv, uint8_t amps);
+  void _applyTotal(VoltronicMAX& inv, uint8_t amps);
+  void _setStatus(const char* fmt, ...);
+  void _setStage(const char* s);
+  uint8_t _pickClosest(bool ac, uint8_t desired) const;
+};
+```
+
+## src/VoltronicStorage.cpp
+
+```cpp
+#include "VoltronicStorage.h"
+#include <EEPROM.h>
+#include <string.h>
+#include "VoltronicLog.h"
+#include "VoltronicMAX.h"
+// ═══════════════════════════════════════════════════════════════
+//  Platform-specific EEPROM handling
+//  ═══════════════════════════════════════════════════════════════
+//  ESP8266/ESP32 : EEPROM.begin(size) + EEPROM.commit()
+//  AVR/SAMD/STM32: EEPROM.begin()  (no args) — no commit needed
+// ═══════════════════════════════════════════════════════════════
+#if defined(ESP8266) || defined(ESP32)
+#  define VSTORAGE_EEPROM_BEGIN(size) EEPROM.begin(size)
+#  define VSTORAGE_EEPROM_COMMIT() EEPROM.commit()
+#  define VSTORAGE_HAS_PRINTF_P 1
+#else
+#  define VSTORAGE_EEPROM_BEGIN(size) EEPROM.begin()
+#  define VSTORAGE_EEPROM_COMMIT() (true)
+#  define VSTORAGE_HAS_PRINTF_P 0
+#endif
+
+// ═══════════════════════════════════════════════════════════════
+VoltronicStorage::VoltronicStorage()
+{
+  memset(&_data, 0, sizeof(_data));
+}
+
+// ─── CRC16 (XMODEM, no escape) ───
+uint16_t VoltronicStorage::_calcCRC(const Data& d)
+{
+  const uint8_t* p = (const uint8_t*)&d;
+  size_t len = sizeof(Data) - sizeof(d.crc) - sizeof(d._padEnd);
+  uint16_t crc = 0;
+  for (size_t i = 0; i < len; i++)
+  {
+    crc ^= (uint16_t)p[i] << 8;
+    for (uint8_t b = 0; b < 8; b++)
+      crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : (crc << 1);
+  }
+  return crc;
+}
+
+// ═══════════════════════════════════════════════════════════════
+void VoltronicStorage::begin(uint16_t eepromSize)
+{
+  _size = eepromSize;
+  VOLTRONIC_EEPROM_BEGIN(_size);
+  VLOG("[Storage] EEPROM ready");
+}
+
+// ═══════════════════════════════════════════════════════════════
+void VoltronicStorage::load(VoltronicMAX& inv)
+{
+  EEPROM.get(0, _data);
+
+  if (_data.magic != MAGIC || _data.version != VERSION)
+  {
+    VLOG("[Storage] No valid data - using defaults");
+    reset();
+    return;
+  }
+
+  // تحقق CRC
+  uint16_t expected = _data.crc;
+  _data.crc = 0;
+  uint16_t actual = _calcCRC(_data);
+  _data.crc = expected;
+
+  if (expected != actual)
+  {
+    VLOG("[Storage] CRC error - using defaults");
+    reset();
+    return;
+  }
+
+  _applyTo(inv);
+  _loaded = true;
+  VLOG("[Storage] Loaded OK");
+}
+
+// ═══════════════════════════════════════════════════════════════
+void VoltronicStorage::save(const VoltronicMAX& inv)
+{
+  _captureFrom(inv);
+  _data.magic = MAGIC;
+  _data.version = VERSION;
+  _data.crc = 0;
+  _data.crc = _calcCRC(_data);
+
+  EEPROM.put(0, _data);
+  bool ok = VOLTRONIC_EEPROM_COMMIT();
+
+  if (ok)
+  {
+    _saves++;
+    _dirty = false;
+    VLOG("[Storage] Saved OK");
+  }
+  else
+  {
+    VLOG("[Storage] Save FAILED");
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+void VoltronicStorage::reset()
+{
+  memset(&_data, 0, sizeof(_data));
+  _data.magic = MAGIC;
+  _data.version = VERSION;
+
+  // defaults
+  _data.batteryType = 0;  // User
+  _data.batteryCapacityAh = 100.0f;
+  _data.batteryVoltageEmpty = 42.0f;
+  _data.batteryVoltageFull = 54.0f;
+  _data.batterySoh = 100.0f;
+  _data.batteryCycleCount = 0;
+
+  _data.scMode = 1;  // STANDARD
+  _data.scTargetAC = 40;
+  _data.scTargetTotal = 80;
+  _data.scFloatAC = 2;
+  _data.scFloatTotal = 10;
+  _data.scTempProtectC = 70;
+
+  _data.pmLocked = 0;
+  _data._pad1 = 0;  // ENGLISH افتراضي
+
+  _data.pmSocEmergency = 10;
+  _data.pmSocPowerSaving = 25;
+  _data.pmSocRecover = 30;
+  _data.pmSocSurplus = 88;
+  _data.pmGridMinVoltage = 150;
+
+  _loaded = false;
+}
+
+// ═══════════════════════════════════════════════════════════════
+void VoltronicStorage::_applyTo(VoltronicMAX& inv)
+{
+  // Battery
+  inv.battery.setType((VoltronicBatteryType)_data.batteryType);
+  inv.battery.setCapacity(_data.batteryCapacityAh);
+  inv.battery.setVoltageEmpty(_data.batteryVoltageEmpty);
+  inv.battery.setVoltageFull(_data.batteryVoltageFull);
+  inv.battery.setInitialSoh(_data.batterySoh);
+  inv.battery.setCycleCount(_data.batteryCycleCount);
+
+  // Smart Charger
+  inv.smartCharger.setMode((VoltronicSmartCharger::Mode)_data.scMode);
+  inv.smartCharger.setTargetAC(_data.scTargetAC);
+  inv.smartCharger.setTargetTotal(_data.scTargetTotal);
+  inv.smartCharger.setFloatAC(_data.scFloatAC);
+  inv.smartCharger.setFloatTotal(_data.scFloatTotal);
+  inv.smartCharger.setTempProtectC(_data.scTempProtectC);
+
+  // Power Mode
+  inv.powerMode.setEmergencyLocked(_data.pmLocked != 0);
+
+  VLOG("[Storage] Battery+SC+PM loaded");
+  inv.lang.setLanguage((VoltronicLang::Language)(_data._pad1 > 1 ? 0 : _data._pad1));
+
+  // Power Mode thresholds
+  if (_data.pmSocEmergency >= 5 && _data.pmSocEmergency <= 40)
+    inv.powerMode.setSocEmergency((float)_data.pmSocEmergency);
+  if (_data.pmSocPowerSaving >= 10 && _data.pmSocPowerSaving <= 50)
+    inv.powerMode.setSocPowerSaving((float)_data.pmSocPowerSaving);
+  if (_data.pmSocRecover >= 20 && _data.pmSocRecover <= 60)
+    inv.powerMode.setSocRecover((float)_data.pmSocRecover);
+  if (_data.pmSocSurplus >= 70 && _data.pmSocSurplus <= 99)
+    inv.powerMode.setSocSurplus((float)_data.pmSocSurplus);
+  if (_data.pmGridMinVoltage >= 100 && _data.pmGridMinVoltage <= 220)
+    inv.powerMode.setGridMinVoltage((float)_data.pmGridMinVoltage);
+
+  VLOG(("[Storage] Battery: type=%u cap=%.0fAh vE=%.1f vF=%.1f\n"),
+       _data.batteryType,
+       _data.batteryCapacityAh,
+       _data.batteryVoltageEmpty,
+       _data.batteryVoltageFull);
+  VLOG(("[Storage] SC: mode=%u AC=%u T=%u fAC=%u fT=%u temp=%u\n"),
+       _data.scMode,
+       _data.scTargetAC,
+       _data.scTargetTotal,
+       _data.scFloatAC,
+       _data.scFloatTotal,
+       _data.scTempProtectC);
+}
+
+// ═══════════════════════════════════════════════════════════════
+void VoltronicStorage::_captureFrom(const VoltronicMAX& inv)
+{
+  // Battery
+  _data.batteryType = (uint8_t)inv.battery.type();
+  _data.batteryCapacityAh = inv.battery.capacityAh();
+  _data.batteryVoltageEmpty = inv.battery.voltageEmpty();
+  _data.batteryVoltageFull = inv.battery.voltageFull();
+  _data.batterySoh = inv.battery.soh();
+  _data.batteryCycleCount = inv.battery.cycleCount();
+
+  // Smart Charger
+  _data.scMode = (uint8_t)inv.smartCharger.mode();
+  _data.scTargetAC = inv.smartCharger.targetAC();
+  _data.scTargetTotal = inv.smartCharger.targetTotal();
+  _data.scFloatAC = inv.smartCharger.floatAC();
+  _data.scFloatTotal = inv.smartCharger.floatTotal();
+  _data.scTempProtectC = inv.smartCharger.tempProtectC();
+
+  // Power Mode
+  _data.pmLocked = inv.powerMode.emergencyLocked() ? 1 : 0;
+  _data._pad1 = (uint8_t)inv.lang.language();
+
+  _data.pmSocEmergency = (uint8_t)inv.powerMode.socEmergency();
+  _data.pmSocPowerSaving = (uint8_t)inv.powerMode.socPowerSaving();
+  _data.pmSocRecover = (uint8_t)inv.powerMode.socRecover();
+  _data.pmSocSurplus = (uint8_t)inv.powerMode.socSurplus();
+  _data.pmGridMinVoltage = (uint16_t)inv.powerMode.gridMinVoltage();
+}
+
+// ═══════════════════════════════════════════════════════════════
+void VoltronicStorage::tick(VoltronicMAX& inv)
+{
+  if (!_dirty)
+    return;
+  if (millis() - _lastChange < 5000)
+    return;
+  save(inv);
+}
+```
+
+## src/VoltronicStorage.h
+
+```h
+#pragma once
+#include <Arduino.h>
+
+class VoltronicMAX;
+
+// ═══════════════════════════════════════════════════════════════
+//  VoltronicStorage — حفظ الإعدادات في EEPROM
+//  يدعم ESP8266 + ESP32
+// ═══════════════════════════════════════════════════════════════
+class VoltronicStorage
+{
+ public:
+  static constexpr uint32_t MAGIC = 0x564F4C54UL;  // "VOLT"
+  static constexpr uint8_t VERSION = 1;
+
+  VoltronicStorage();
+
+  // ─── Lifecycle ───
+  void begin(uint16_t eepromSize = 512);
+  void load(VoltronicMAX& inv);
+  void save(const VoltronicMAX& inv);
+  void reset();
+
+  // ─── حالة ───
+  bool isLoaded() const
+  {
+    return _loaded;
+  }
+  bool isDirty() const
+  {
+    return _dirty;
+  }
+  uint32_t saves() const
+  {
+    return _saves;
+  }
+
+  // ─── auto-save ───
+  void markDirty()
+  {
+    _dirty = true;
+    _lastChange = millis();
+  }
+  void tick(VoltronicMAX& inv);  // احفظ تلقائياً بعد 5 ثواني من آخر تغيير
+
+ private:
+  struct Data
+  {
+    uint32_t magic;
+    uint8_t version;
+    uint8_t _pad1;
+    uint16_t _pad2;
+
+    // Battery
+    uint8_t batteryType;
+    uint8_t _padB;
+    float batteryCapacityAh;
+    float batteryVoltageEmpty;
+    float batteryVoltageFull;
+    float batterySoh;
+    uint16_t batteryCycleCount;
+    uint16_t _padB2;
+
+    // Smart Charger
+    uint8_t scMode;
+    uint8_t scTargetAC;
+    uint8_t scTargetTotal;
+    uint8_t scFloatAC;
+    uint8_t scFloatTotal;
+    uint8_t scTempProtectC;
+    uint16_t _padSC;
+
+    // Power Mode
+    uint8_t pmLocked;
+    uint8_t _padPM[3];
+
+    uint16_t crc;
+    uint16_t _padEnd;
+
+    // Power Mode thresholds
+    uint8_t pmSocEmergency;     // 5-40
+    uint8_t pmSocPowerSaving;   // 10-50
+    uint8_t pmSocRecover;       // 20-60
+    uint8_t pmSocSurplus;       // 70-99
+    uint16_t pmGridMinVoltage;  // 100-220
+  };
+
+  Data _data;
+  bool _loaded = false;
+  bool _dirty = false;
+  uint32_t _saves = 0;
+  uint32_t _lastChange = 0;
+  uint16_t _size = 512;
+
+  static uint16_t _calcCRC(const Data& d);
+  void _applyTo(VoltronicMAX& inv);
+  void _captureFrom(const VoltronicMAX& inv);
+};
+```
+
+## src/VoltronicTransport.h
+
+```h
+#pragma once
+#include <Arduino.h>
+#include "VoltronicConfig.h"
+
+// ===============================================================
+//  VoltronicTransport - wraps a Stream (HardwareSerial/SoftwareSerial)
+//
+//  Stream is abstract - it has no begin() method.
+//  The user MUST initialize the serial port before inverter.begin():
+//
+//    ESP8266:
+//      SoftwareSerial invSerial(D1, D2);
+//      invSerial.begin(2400);
+//      VoltronicMAX inverter(invSerial);
+//      inverter.begin(cfg);
+//
+//    ESP32:
+//      Serial2.begin(2400, SERIAL_8N1, 16, 17);
+//      VoltronicMAX inverter(Serial2);
+//      inverter.begin(cfg);
+// ===============================================================
+class VoltronicTransport
+{
+ public:
+  explicit VoltronicTransport(Stream& serial)
+    : _serial(serial)
+    , _cfg(nullptr)
+  {
+  }
+
+  // Bind config (called from VoltronicMAX::begin)
+  void attachConfig(const VoltronicConfig* cfg)
+  {
+    _cfg = cfg;
+  }
+
+  // No-op - user initializes Serial
+  void begin()
+  {
+  }
+
+  // Drain input buffer
+  void clear()
+  {
+    while (_serial.available())
+      _serial.read();
+  }
+
+  // Send a complete frame
+  void writeRaw(const uint8_t* data, size_t len)
+  {
+    _serial.write(data, len);
+    _serial.flush();
+  }
+
+  // ===============================================================
+  //  Read until CR (0x0D)
+  //
+  //  We keep ALL bytes including non-printable CRC bytes
+  //  because they are needed to verify the CRC later.
+  //
+  //  Behavior:
+  //    1. Skip noise before the first '('
+  //    2. Collect all bytes after '(' until 0x0D
+  //    3. Return count of collected bytes (excluding CR)
+  //    4. Return 0 on timeout
+  // ===============================================================
+  size_t readUntilCR(uint8_t* buffer, size_t maxLen)
+  {
+    if (!_cfg)
+      return 0;
+
+    const uint32_t start = millis();
+    const uint32_t timeout = _cfg->responseTimeoutMs;
+    size_t idx = 0;
+    bool foundStart = false;
+
+    while ((millis() - start) < timeout)
+    {
+      while (_serial.available())
+      {
+        int b = _serial.read();
+        if (b < 0)
+          continue;
+
+        // End of frame
+        if (b == 0x0D)
+          return idx;
+
+        // Skip noise before '('
+        if (!foundStart)
+        {
+          if (b == '(')
+            foundStart = true;
+          else
+            continue;
+        }
+
+        // No filtering - keep all bytes (including CRC)
+        if (idx < maxLen)
+          buffer[idx++] = (uint8_t)b;
+      }
+
+      // Runtime yield (for ESP8266 WDT)
+      if (_cfg->yieldDuringRead)
+        yield();
+    }
+    return idx;
+  }
+
+  // Direct access (for debugging only)
+  Stream& stream()
+  {
+    return _serial;
+  }
+
+ private:
+  Stream& _serial;
+  const VoltronicConfig* _cfg;
+};
+```
+
+## src/VoltronicTypes.h
+
+```h
+#pragma once
+#include <Arduino.h>
+
+// ═══════════════════════════════════════════════════════════════
+//  Valid bits لكل نوع رد
+// ═══════════════════════════════════════════════════════════════
+enum VoltronicValidBit : uint32_t
+{
+  VVB_QPIGS = 0x00000001,
+  VVB_QPIGS2 = 0x00000002,
+  VVB_QPIRI = 0x00000004,
+  VVB_QMOD = 0x00000008,
+  VVB_QPIWS = 0x00000010,
+  VVB_QFLAG = 0x00000020,
+  VVB_QID = 0x00000040,
+  VVB_QDI = 0x00000080,
+  VVB_QMCHGCR = 0x00000100,
+  VVB_QMUCHGCR = 0x00000200,
+  VVB_QOPPT = 0x00000400,
+  VVB_QCHPT = 0x00000800,
+  VVB_QT = 0x00001000,
+  VVB_QBEQI = 0x00002000,
+  VVB_QMN = 0x00004000,
+  VVB_QGMN = 0x00008000,
+  VVB_QBOOT = 0x00010000,
+  VVB_QBATCD = 0x00020000,
+  VVB_QLED = 0x00040000,
+  VVB_QPGS = 0x00080000,
+  VVB_QVFW = 0x00100000,
+  VVB_QSID = 0x00200000,
+  VVB_QVFW3 = 0x00400000,
+  VVB_VERFW = 0x00800000,
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  QPIGS — Compact (x10 / x100)
+// ═══════════════════════════════════════════════════════════════
+struct QPIGSData
+{
+  uint16_t gridVoltage_x10 = 0;
+  uint16_t gridFrequency_x10 = 0;
+  uint16_t acOutputVoltage_x10 = 0;
+  uint16_t acOutputFrequency_x10 = 0;
+  uint16_t acOutputApparentPower = 0;  // VA
+  uint16_t acOutputActivePower = 0;    // W
+  uint8_t loadPercent = 0;             // %
+  uint16_t busVoltage = 0;             // V
+  uint16_t batteryVoltage_x100 = 0;
+  uint16_t batteryChargingCurrent = 0;  // A
+  uint8_t batteryCapacity = 0;          // %
+  uint16_t inverterTemperature = 0;     // °C
+  uint16_t pv1InputCurrent_x10 = 0;
+  uint16_t pv1InputVoltage_x10 = 0;
+  uint16_t sccBatteryVoltage_x100 = 0;
+  uint16_t batteryDischargeCurrent = 0;  // A
+  uint8_t deviceStatus = 0;              // b7..b0
+  uint16_t batteryVoltageOffsetForFans = 0;
+  uint8_t eepromVersion = 0;
+  uint16_t pv1ChargingPower = 0;  // W
+  uint8_t deviceStatus2 = 0;      // b10b9b8
+  uint8_t solarFeedToGridStatus = 0;
+  uint8_t countryRegulation = 0;
+  uint16_t solarFeedToGridPower = 0;  // W
+  // ═══════════════════════════════════════════════════════════
+  //  Device Status Decoded
+  //  يفك الـ 8 bits إلى بنية مفهومة
+  // ═══════════════════════════════════════════════════════════
+  struct DeviceStatusInfo
+  {
+    bool sbuPriorityVersion;
+    bool configurationChanged;
+    bool sccFirmwareUpdated;
+    bool loadOn;
+    bool batterySteady;
+    uint8_t chargingCode;  // 0-7
+  };
+
+  DeviceStatusInfo decodeDeviceStatus() const
+  {
+    DeviceStatusInfo info;
+    info.sbuPriorityVersion = deviceStatus & 0x80;
+    info.configurationChanged = deviceStatus & 0x40;
+    info.sccFirmwareUpdated = deviceStatus & 0x20;
+    info.loadOn = deviceStatus & 0x10;
+    info.batterySteady = deviceStatus & 0x08;
+    info.chargingCode = deviceStatus & 0x07;
+    return info;
+  }
+  float gridVoltage() const
+  {
+    return gridVoltage_x10 / 10.0f;
+  }
+  float gridFrequency() const
+  {
+    return gridFrequency_x10 / 10.0f;
+  }
+  float acOutputVoltage() const
+  {
+    return acOutputVoltage_x10 / 10.0f;
+  }
+  float acOutputFrequency() const
+  {
+    return acOutputFrequency_x10 / 10.0f;
+  }
+  float batteryVoltage() const
+  {
+    return batteryVoltage_x100 / 100.0f;
+  }
+  float pv1InputCurrent() const
+  {
+    return pv1InputCurrent_x10 / 10.0f;
+  }
+  float pv1InputVoltage() const
+  {
+    return pv1InputVoltage_x10 / 10.0f;
+  }
+  float sccBatteryVoltage() const
+  {
+    return sccBatteryVoltage_x100 / 100.0f;
+  }
+
+  // Status bits (b7..b0)
+  bool sbAddSBUPriorityVersion() const
+  {
+    return deviceStatus & 0x80;
+  }
+  bool sbConfigurationChanged() const
+  {
+    return deviceStatus & 0x40;
+  }
+  bool sbSccFirmwareUpdated() const
+  {
+    return deviceStatus & 0x20;
+  }
+  bool sbLoadOn() const
+  {
+    return deviceStatus & 0x10;
+  }
+  bool sbBatterySteady() const
+  {
+    return deviceStatus & 0x08;
+  }
+  // يرجع 0..7 — charging status code (مو bit واحد)
+  uint8_t sbChargingStatus() const
+  {
+    return deviceStatus & 0x07;
+  }
+
+  // Status bits2 (b10b9b8)
+  bool sb2ChargingToFloat() const
+  {
+    return deviceStatus2 & 0x01;
+  }
+  bool sb2SwitchOn() const
+  {
+    return deviceStatus2 & 0x02;
+  }
+  bool sb2DustproofInstalled() const
+  {
+    return deviceStatus2 & 0x04;
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  QPIGS2
+// ═══════════════════════════════════════════════════════════════
+struct QPIGS2Data
+{
+  uint16_t pv2InputCurrent_x10 = 0;
+  uint16_t pv2InputVoltage_x10 = 0;
+  uint16_t pv2ChargingPower = 0;
+
+  float pv2InputCurrent() const
+  {
+    return pv2InputCurrent_x10 / 10.0f;
+  }
+  float pv2InputVoltage() const
+  {
+    return pv2InputVoltage_x10 / 10.0f;
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  QPIRI
+// ═══════════════════════════════════════════════════════════════
+struct QPIRIData
+{
+  uint16_t gridRatingVoltage_x10 = 0;
+  uint16_t gridRatingCurrent_x10 = 0;
+  uint16_t acOutputRatingVoltage_x10 = 0;
+  uint16_t acOutputRatingFrequency_x10 = 0;
+  uint16_t acOutputRatingCurrent_x10 = 0;
+  uint16_t acOutputRatingApparentPower = 0;
+  uint16_t acOutputRatingActivePower = 0;
+  uint16_t batteryRatingVoltage_x10 = 0;
+  uint16_t batteryRechargeVoltage_x10 = 0;
+  uint16_t batteryUnderVoltage_x10 = 0;
+  uint16_t batteryBulkVoltage_x10 = 0;
+  uint16_t batteryFloatVoltage_x10 = 0;
+  uint8_t batteryType = 0;
+  uint8_t maxACChargingCurrent = 0;
+  uint8_t maxChargingCurrent = 0;
+  uint8_t inputVoltageRange = 0;
+  uint8_t outputSourcePriority = 0;
+  uint8_t chargerSourcePriority = 0;
+  uint8_t parallelMaxNum = 0;
+  uint8_t machineType = 0;
+  uint8_t outputMode = 0;
+  uint16_t batteryRedischargeVoltage_x10 = 0;
+  uint8_t pvOKConditionForParallel = 0;
+  uint8_t pvPowerBalance = 0;
+
+  float gridRatingVoltage() const
+  {
+    return gridRatingVoltage_x10 / 10.0f;
+  }
+  float gridRatingCurrent() const
+  {
+    return gridRatingCurrent_x10 / 10.0f;
+  }
+  float acOutputRatingVoltage() const
+  {
+    return acOutputRatingVoltage_x10 / 10.0f;
+  }
+  float acOutputRatingFrequency() const
+  {
+    return acOutputRatingFrequency_x10 / 10.0f;
+  }
+  float acOutputRatingCurrent() const
+  {
+    return acOutputRatingCurrent_x10 / 10.0f;
+  }
+  float batteryRatingVoltage() const
+  {
+    return batteryRatingVoltage_x10 / 10.0f;
+  }
+  float batteryRechargeVoltage() const
+  {
+    return batteryRechargeVoltage_x10 / 10.0f;
+  }
+  float batteryUnderVoltage() const
+  {
+    return batteryUnderVoltage_x10 / 10.0f;
+  }
+  float batteryBulkVoltage() const
+  {
+    return batteryBulkVoltage_x10 / 10.0f;
+  }
+  float batteryFloatVoltage() const
+  {
+    return batteryFloatVoltage_x10 / 10.0f;
+  }
+  float batteryRedischargeVoltage() const
+  {
+    return batteryRedischargeVoltage_x10 / 10.0f;
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  QFLAG
+//  ملاحظة: raw يحتوي النص الأصلي كما جاء من الجهاز (مثال "EaxDby...")
+//  parser يملؤه دائماً — استخدمه للـ debug أو لعرض الحالة الكاملة
+// ═══════════════════════════════════════════════════════════════
+struct QFLAGData
+{
+  static constexpr uint8_t RAW_MAX = 20;
+
+  uint16_t flags = 0;
+  char raw[RAW_MAX] = {0};
+
+  bool buzzerEnabled() const
+  {
+    return flags & (1u << 0);
+  }
+  bool overloadBypass() const
+  {
+    return flags & (1u << 1);
+  }
+  bool solarFeedToGrid() const
+  {
+    return flags & (1u << 2);
+  }
+  bool powerSaving() const
+  {
+    return flags & (1u << 3);
+  }
+  bool lcdEscapeToDefault() const
+  {
+    return flags & (1u << 4);
+  }
+  bool overloadRestart() const
+  {
+    return flags & (1u << 5);
+  }
+  bool overTempRestart() const
+  {
+    return flags & (1u << 6);
+  }
+  bool backlightOn() const
+  {
+    return flags & (1u << 7);
+  }
+  bool alarmOnPrimaryInterrupt() const
+  {
+    return flags & (1u << 8);
+  }  // ✅ FIXED
+  bool faultCodeRecord() const
+  {
+    return flags & (1u << 9);
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  Warning decode (QPIWS)
+//  البروتوكول يرسل 36 بت (a0..a35) — ندعمها كلها الآن
+//  ⚠️ هذا يغيّر حجم WarningDecoded من 4 إلى 8 بايت
+// ═══════════════════════════════════════════════════════════════
+struct WarningDecoded
+{
+  uint64_t raw = 0;
+
+  bool pvLoss() const
+  {
+    return raw & (1ULL << 0);
+  }
+  bool inverterFault() const
+  {
+    return raw & (1ULL << 1);
+  }
+  bool busOver() const
+  {
+    return raw & (1ULL << 2);
+  }
+  bool busUnder() const
+  {
+    return raw & (1ULL << 3);
+  }
+  bool busSoftFail() const
+  {
+    return raw & (1ULL << 4);
+  }
+  bool lineFail() const
+  {
+    return raw & (1ULL << 5);
+  }
+  bool opvShort() const
+  {
+    return raw & (1ULL << 6);
+  }
+  bool inverterVoltageLow() const
+  {
+    return raw & (1ULL << 7);
+  }
+  bool inverterVoltageHigh() const
+  {
+    return raw & (1ULL << 8);
+  }
+  bool overTemperature() const
+  {
+    return raw & (1ULL << 9);
+  }
+  bool fanLocked() const
+  {
+    return raw & (1ULL << 10);
+  }
+  bool batteryVoltageHigh() const
+  {
+    return raw & (1ULL << 11);
+  }
+  bool batteryLowAlarm() const
+  {
+    return raw & (1ULL << 12);
+  }
+  bool batteryUnderShutdown() const
+  {
+    return raw & (1ULL << 14);
+  }
+  bool batteryDerating() const
+  {
+    return raw & (1ULL << 15);
+  }
+  bool overload() const
+  {
+    return raw & (1ULL << 16);
+  }
+  bool eepromFault() const
+  {
+    return raw & (1ULL << 17);
+  }
+  bool inverterOverCurrent() const
+  {
+    return raw & (1ULL << 18);
+  }
+  bool inverterSoftFail() const
+  {
+    return raw & (1ULL << 19);
+  }
+  bool selfTestFail() const
+  {
+    return raw & (1ULL << 20);
+  }
+  bool opDcVoltageOver() const
+  {
+    return raw & (1ULL << 21);
+  }
+  bool batOpen() const
+  {
+    return raw & (1ULL << 22);
+  }
+  bool currentSensorFail() const
+  {
+    return raw & (1ULL << 23);
+  }
+  bool batteryWeak() const
+  {
+    return raw & (1ULL << 31);
+  }
+  bool batteryEqualization() const
+  {
+    return raw & (1ULL << 35);
+  }  // ✅ جديد
+
+  bool any() const
+  {
+    return raw != 0;
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  QPGSn — Parallel info (compact)
+// ═══════════════════════════════════════════════════════════════
+struct ParallelInfo
+{
+  static constexpr uint8_t SERIAL_MAX = 16;
+
+  uint8_t parallelNumber = 0;
+  bool exists = false;
+  char serialNumber[SERIAL_MAX] = {0};
+  char workMode = ' ';
+  uint8_t faultCode = 0;
+  uint16_t gridVoltage_x10 = 0;
+  uint16_t gridFrequency_x10 = 0;
+  uint16_t acOutputVoltage_x10 = 0;
+  uint16_t acOutputFrequency_x10 = 0;
+  uint16_t acOutputApparentPower = 0;
+  uint16_t acOutputActivePower = 0;
+  uint8_t loadPercent = 0;
+  uint16_t batteryVoltage_x10 = 0;
+  uint16_t batteryChargingCurrent = 0;
+  uint8_t batteryCapacity = 0;
+  uint16_t pvInputVoltage_x10 = 0;
+  uint16_t pvInputCurrent_x10 = 0;
+  uint16_t totalChargingCurrent = 0;
+  uint16_t totalACOutputApparentPower = 0;
+  uint16_t totalOutputActivePower = 0;
+  uint8_t totalACOutputPercentage = 0;
+  uint8_t inverterStatus = 0;
+  uint8_t outputMode = 0;
+  uint8_t chargerSourcePriority = 0;
+  uint8_t maxChargerCurrent = 0;
+  uint8_t maxChargerRange = 0;
+  uint8_t maxACChargerCurrent = 0;
+  uint16_t pvInputCurrent2_x10 = 0;
+
+  float gridVoltage() const
+  {
+    return gridVoltage_x10 / 10.0f;
+  }
+  float gridFrequency() const
+  {
+    return gridFrequency_x10 / 10.0f;
+  }
+  float acOutputVoltage() const
+  {
+    return acOutputVoltage_x10 / 10.0f;
+  }
+  float acOutputFrequency() const
+  {
+    return acOutputFrequency_x10 / 10.0f;
+  }
+  float batteryVoltage() const
+  {
+    return batteryVoltage_x10 / 10.0f;
+  }
+  float pvInputVoltage() const
+  {
+    return pvInputVoltage_x10 / 10.0f;
+  }
+  float pvInputCurrent() const
+  {
+    return pvInputCurrent_x10 / 10.0f;
+  }
+  float pvInputCurrent2() const
+  {
+    return pvInputCurrent2_x10 / 10.0f;
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  QBEQI — Battery equalization
+// ═══════════════════════════════════════════════════════════════
+struct BatteryEqualizationInfo
+{
+  bool enabled = false;
+  uint16_t timeMinutes = 0;
+  uint16_t periodDays = 0;
+  uint16_t voltage_x10 = 0;
+  uint16_t overTimeMinutes = 0;
+  uint16_t maxTimeMinutes = 0;
+  uint8_t activeNow = 0;
+
+  float voltage() const
+  {
+    return voltage_x10 / 10.0f;
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  QLED — LED status
+// ═══════════════════════════════════════════════════════════════
+struct LedInfo
+{
+  static constexpr uint8_t MAX_COLORS = 3;
+
+  bool enabled = false;
+  uint8_t speed = 0;       // 0=low, 1=medium, 2=fast
+  uint8_t effect = 0;      // 0=breathing, 1=flashing, 2=solid, 3..6=scroll/spark
+  uint8_t brightness = 0;  // 1..9
+  uint8_t colorCount = 0;  // 1..3
+  uint8_t red[MAX_COLORS] = {0};
+  uint8_t green[MAX_COLORS] = {0};
+  uint8_t blue[MAX_COLORS] = {0};
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  QDI — Default settings
+// ═══════════════════════════════════════════════════════════════
+struct DefaultsInfo
+{
+  uint16_t acOutputVoltage_x10 = 0;
+  uint16_t acOutputFrequency_x10 = 0;
+  uint8_t maxACChargingCurrent = 0;
+  uint16_t batteryUnderVoltage_x10 = 0;
+  uint16_t batteryFloatVoltage_x10 = 0;
+  uint16_t batteryBulkVoltage_x10 = 0;
+  uint16_t batteryRechargeVoltage_x10 = 0;
+  uint8_t maxChargingCurrent = 0;
+  uint8_t acInputVoltageRange = 0;
+  uint8_t outputSourcePriority = 0;
+  uint8_t chargerSourcePriority = 0;
+  uint8_t batteryType = 0;
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  QBATCD — Battery control status
+// ═══════════════════════════════════════════════════════════════
+struct BatteryControlStatus
+{
+  uint8_t dischargeCompletely = 0;
+  uint8_t dischargeAllowed = 0;
+  uint8_t chargeCompletely = 0;
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  QMCHGCR / QMUCHGCR — قوائم قيم قابلة للاختيار
+// ═══════════════════════════════════════════════════════════════
+struct SelectableValues
+{
+  static constexpr uint8_t MAX_VALUES = 16;
+  uint8_t values[MAX_VALUES] = {0};
+  uint8_t count = 0;
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  QOPPT / QCHPT — جدول زمني 24 ساعة
+// ═══════════════════════════════════════════════════════════════
+struct TimeOrderInfo
+{
+  static constexpr uint8_t HOURS = 24;
+  uint8_t hours[HOURS] = {0};
+  uint8_t defaultVal = 0;
+  uint8_t order = 0;
+};
+```
+
+---
+**Total**: 23 files, 211.38 KB

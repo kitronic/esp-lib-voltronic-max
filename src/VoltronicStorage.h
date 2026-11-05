@@ -5,13 +5,13 @@ class VoltronicMAX;
 
 // ═══════════════════════════════════════════════════════════════
 //  VoltronicStorage — حفظ الإعدادات في EEPROM
-//  يدعم ESP8266 + ESP32
+//  VERSION 2: أضفنا IR compensation + EMA alpha
 // ═══════════════════════════════════════════════════════════════
 class VoltronicStorage
 {
  public:
   static constexpr uint32_t MAGIC = 0x564F4C54UL;  // "VOLT"
-  static constexpr uint8_t VERSION = 1;
+  static constexpr uint8_t VERSION = 2;            // ← رُفع من 1
 
   VoltronicStorage();
 
@@ -22,18 +22,9 @@ class VoltronicStorage
   void reset();
 
   // ─── حالة ───
-  bool isLoaded() const
-  {
-    return _loaded;
-  }
-  bool isDirty() const
-  {
-    return _dirty;
-  }
-  uint32_t saves() const
-  {
-    return _saves;
-  }
+  bool isLoaded() const { return _loaded; }
+  bool isDirty() const { return _dirty; }
+  uint32_t saves() const { return _saves; }
 
   // ─── auto-save ───
   void markDirty()
@@ -41,17 +32,18 @@ class VoltronicStorage
     _dirty = true;
     _lastChange = millis();
   }
-  void tick(VoltronicMAX& inv);  // احفظ تلقائياً بعد 5 ثواني من آخر تغيير
+  void tick(VoltronicMAX& inv);
 
  private:
   struct Data
   {
+    // ═══ Header ═══
     uint32_t magic;
     uint8_t version;
     uint8_t _pad1;
     uint16_t _pad2;
 
-    // Battery
+    // ═══ Battery ═══
     uint8_t batteryType;
     uint8_t _padB;
     float batteryCapacityAh;
@@ -61,7 +53,7 @@ class VoltronicStorage
     uint16_t batteryCycleCount;
     uint16_t _padB2;
 
-    // Smart Charger
+    // ═══ Smart Charger ═══
     uint8_t scMode;
     uint8_t scTargetAC;
     uint8_t scTargetTotal;
@@ -70,19 +62,24 @@ class VoltronicStorage
     uint8_t scTempProtectC;
     uint16_t _padSC;
 
-    // Power Mode
+    // ═══ Power Mode ═══
     uint8_t pmLocked;
     uint8_t _padPM[3];
 
+    // ═══ ⚡ جديد في VERSION 2 ═══
+    float sysResistance_mOhm;  // مقاومة النظام × 1000 (0 → معطّل)
+    float voltageEmaAlpha;     // alpha × 100 (0..100)
+
+    // ═══ CRC + tail ═══
     uint16_t crc;
     uint16_t _padEnd;
 
-    // Power Mode thresholds
-    uint8_t pmSocEmergency;     // 5-40
-    uint8_t pmSocPowerSaving;   // 10-50
-    uint8_t pmSocRecover;       // 20-60
-    uint8_t pmSocSurplus;       // 70-99
-    uint16_t pmGridMinVoltage;  // 100-220
+    // ═══ Power Mode thresholds ═══
+    uint8_t pmSocEmergency;
+    uint8_t pmSocPowerSaving;
+    uint8_t pmSocRecover;
+    uint8_t pmSocSurplus;
+    uint16_t pmGridMinVoltage;
   };
 
   Data _data;
