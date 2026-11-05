@@ -124,7 +124,7 @@ void VoltronicStorage::reset()
   _data.scTempProtectC = 70;
 
   // ⚡ VERSION 2 defaults
-  _data.sysResistance_mOhm = 15.0f;  // 0.015 Ohm (نفس قيمتك القديمة)
+  _data.sysResistance_mOhm = 8.0f;  // 0.015 Ohm (نفس قيمتك القديمة)
   _data.voltageEmaAlpha = 25.0f;     // 0.25 EMA
 
   // Power Mode defaults
